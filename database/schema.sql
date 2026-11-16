@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS panels (
     url TEXT NOT NULL,
     username VARCHAR(150) NOT NULL,
     password TEXT NOT NULL,
-    inbounds_json TEXT DEFAULT '[]',
+    inbounds_json TEXT,
     is_active INTEGER DEFAULT 1,
     capacity INTEGER DEFAULT 500,
     current_clients INTEGER DEFAULT 0,
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS panels (
     max_gb INTEGER DEFAULT 500,
     min_days INTEGER DEFAULT 1,
     max_days INTEGER DEFAULT 365,
-    categories_json TEXT DEFAULT '["یک ماهه", "دو ماهه", "سه ماهه", "نامحدود"]',
+    categories_json TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS users (
     last_name VARCHAR(150),
     balance INTEGER DEFAULT 0,
     step VARCHAR(100) DEFAULT 'idle',
-    step_data TEXT DEFAULT '{}',
+    step_data TEXT,
     is_banned INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS admins (
     password TEXT NOT NULL,
     name VARCHAR(150) NOT NULL,
     role VARCHAR(50) DEFAULT 'operator', -- 'super_admin' or 'operator'
-    permissions TEXT DEFAULT '[]', -- JSON array of allowed permissions
+    permissions TEXT, -- JSON array of allowed permissions
     is_active INTEGER DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

@@ -131,6 +131,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Adapt SQLite syntax to MySQL
                 $sql = str_replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'INT PRIMARY KEY AUTO_INCREMENT', $sql);
                 $sql = str_replace('DATETIME DEFAULT CURRENT_TIMESTAMP', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP', $sql);
+                // MySQL 5.7/8.0 TEXT columns cannot have literal default values
+                $sql = preg_replace('/TEXT\s+DEFAULT\s+[\'"][^\'"]*[\'"]/i', 'TEXT', $sql);
             }
 
             $statements = array_filter(array_map('trim', explode(';', $sql)));
