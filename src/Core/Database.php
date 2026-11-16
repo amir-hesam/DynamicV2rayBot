@@ -1,0 +1,158 @@
+<?php
+
+namespace App\Core;
+
+use PDO;
+use PDOException;
+
+class Database
+{
+    private static ?PDO $instance = null;
+
+    public static function getInstance(): PDO
+    {
+        if (self::$instance === null) {
+            $config = require __DIR__ . '/../../config/database.php';
+            $driver = $config['driver'] ?? 'sqlite';
+
+            try {
+                if ($driver === 'sqlite') {
+                    $dbPath = $config['sqlite']['database'];
+                    $dir = dirname($dbPath);
+                    if (!is_dir($dir)) {
+                        mkdir($dir, 0777, true);
+                    }
+                    self::$instance = new PDO("sqlite:" . $dbPath);
+                    self::$instance->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                    self::$instance->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+                    self::$instance->exec('PRAGMA journal_mode = WAL;');
+                } else {
+                    $m = $config['mysql'];
+                    $dsn = "mysql:host={$m['host']};port={$m['port']};dbname={$m['database']};charset={$m['charset']}";
+                    self::$instance = new PDO($dsn, $m['username'], $m['password'], [
+                        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    ]);
+                }
+            } catch (PDOException $e) {
+                die("Database connection failed: " . $e->getMessage());
+            }
+        }
+
+        return self::$instance;
+    }
+
+    public static function initSchema(): void
+    {
+        $pdo = self::getInstance();
+        $schema = file_get_contents(__DIR__ . '/../../database/schema.sql');
+        $statements = array_filter(array_map('trim', explode(';', $schema)));
+
+        foreach ($statements as $stmt) {
+            if (!empty($stmt)) {
+                $pdo->exec($stmt);
+            }
+        }
+
+        // Migrate wireguard_conf column if missing
+        try {
+            $pdo->exec("ALTER TABLE services ADD COLUMN wireguard_conf TEXT");
+        } catch (\Throwable $e) {
+            // Already exists
+        }
+
+        // Initialize default settings if not exists
+        self::seedDefaults();
+    }
+
+    private static function seedDefaults(): void
+    {
+        $pdo = self::getInstance();
+
+        $defaultSettings = [
+            'bot_token' => '',
+            'bot_username' => '',
+            'admin_telegram_id' => '',
+            'miniapp_url' => '',
+            'admin_username' => 'admin',
+            'admin_password' => password_hash('admin123', PASSWORD_BCRYPT),
+            
+            // Customizable Button Texts
+            'btn_buy' => '🛍 خرید اشتراک جدید',
+            'btn_my_services' => '📱 سرویس‌های فعال من',
+            'btn_plans' => '📋 تعرفه و پلن‌ها',
+            'btn_wallet' => '💳 کارت به کارت و شارژ',
+            'btn_help' => '📖 راهنمای اتصال',
+            'btn_support' => '📞 پشتیبانی تلگرام',
+            'btn_test_account' => '🎁 اکانت تست رایگان',
+            'btn_miniapp' => '🚀 ورود به مینی‌اپ',
+
+            // Customizable Mini App & Buttons Colors
+            'miniapp_primary_color' => '#2563eb', // Royal Blue
+            'miniapp_accent_color' => '#10b981',  // Emerald Green
+            'miniapp_btn_text_color' => '#ffffff',
+            'miniapp_btn_radius' => '12px',
+            'miniapp_theme_mode' => 'dark',
+
+            // System Texts
+            'welcome_msg' => "سلام %first_name% عزیز! 🌟\nبه ربات هوشمند ارائه سرویس‌های پرسرعت اینترنت آزاد خوش آمدید.\nجهت شروع یکی از گزینه‌های زیر یا مینی‌اپ را انتخاب فرمایید:",
+            'help_msg' => "📖 راهنمای اتصال به سرویس‌ها:\n\n۱. برای اندروید نرم‌افزار v2rayNG یا v2rayN یا Hiddify را نصب کنید.\n۲. برای iOS نرم‌افزار v2box یا Streisand یا Foxray را نصب کنید.\n۳. برای ویندوز نرم‌افزار v2rayN یا Nekoray را دانلود کنید.\n\nپس از خرید اشتراک، کافیست لینک اتصال یا QR Code داده شده را در نرم‌افزار ایمپورت نمایید.",
+            'support_text' => "جهت ارتباط با پشتیبانی، لطفا به آیدی زیر پیام دهید:\n@your_support_id",
+            'card_instruction' => "💳 شماره کارت فعال جهت واریز:\nشماره کارت: %card_number%\nبه نام: %holder_name%\nبانک: %bank_name%\n\nلطفا پس از واریز مبلغ %amount% تومان، تصویر رسید پرداختی خود را به عنوان عکس در ربات بفرستید.",
+        ];
+
+        $stmt = $pdo->prepare("INSERT OR IGNORE INTO settings (`key`, `value`) VALUES (:key, :value)");
+        foreach ($defaultSettings as $key => $val) {
+            $stmt->execute(['key' => $key, 'value' => $val]);
+        }
+
+        // Seed sample card if table is empty
+        $count = $pdo->query("SELECT COUNT(*) FROM bank_cards")->fetchColumn();
+        if ($count == 0) {
+            $cardStmt = $pdo->prepare("INSERT INTO bank_cards (card_number, holder_name, bank_name, is_active) VALUES (?, ?, ?, 1)");
+            $cardStmt->execute(['6037997412345678', 'مدیریت سرور', 'بانک ملی']);
+        }
+
+        // Seed sample plans if empty
+        $countPlans = $pdo->query("SELECT COUNT(*) FROM plans")->fetchColumn();
+        if ($countPlans == 0) {
+            $planStmt = $pdo->prepare("INSERT INTO plans (name, description, price, traffic_gb, days, ip_limit, panel_id, is_active, sort_order) VALUES (?, ?, ?, ?, ?, ?, 0, 1, ?)");
+            $planStmt->execute(['پلن اقتصادی ۱ ماهه', '۳۰ گیگابایت - ۱ کاربره - سرور پرسرعت آلمان', 89000, 30, 30, 1, 1]);
+            $planStmt->execute(['پلن نقره‌ای ۱ ماهه', '۶۰ گیگابایت - ۲ کاربره همزمان - پینگ پایین', 149000, 60, 30, 2, 2]);
+            $planStmt->execute(['پلن طلایی ۳ ماهه', '۱۲۰ گیگابایت - ۲ کاربره همزمان - بدون قطعی', 279000, 120, 90, 2, 3]);
+        }
+
+        // Seed default super admin in admins table
+        $countAdmins = $pdo->query("SELECT COUNT(*) FROM admins")->fetchColumn();
+        if ($countAdmins == 0) {
+            $adminStmt = $pdo->prepare("INSERT INTO admins (username, password, name, role, permissions, is_active) VALUES (?, ?, ?, ?, ?, 1)");
+            $adminStmt->execute([
+                'admin',
+                password_hash('admin123', PASSWORD_BCRYPT),
+                'مدیر ارشد',
+                'super_admin',
+                json_encode(['*'])
+            ]);
+        }
+
+        // Seed default bot buttons with positions and colors
+        $countBtns = $pdo->query("SELECT COUNT(*) FROM bot_buttons")->fetchColumn();
+        if ($countBtns == 0) {
+            $btnStmt = $pdo->prepare("INSERT INTO bot_buttons (`key`, title, row_num, order_in_row, is_active, color, text_color) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $defaultBtns = [
+                ['btn_miniapp', '🚀 ورود به مینی‌اپ', 1, 1, 1, '#3b82f6', '#ffffff'],
+                ['btn_buy', '🛍 خرید اشتراک جدید', 2, 1, 1, '#2563eb', '#ffffff'],
+                ['btn_my_services', '📱 سرویس‌های فعال من', 2, 2, 1, '#10b981', '#ffffff'],
+                ['btn_plans', '📋 تعرفه و پلن‌ها', 3, 1, 1, '#6366f1', '#ffffff'],
+                ['btn_wallet', '💳 کارت به کارت و شارژ', 3, 2, 1, '#f59e0b', '#ffffff'],
+                ['btn_help', '📖 راهنمای اتصال', 4, 1, 1, '#06b6d4', '#ffffff'],
+                ['btn_support', '📞 پشتیبانی تلگرام', 4, 2, 1, '#ec4899', '#ffffff'],
+                ['btn_test_account', '🎁 اکانت تست رایگان', 5, 1, 1, '#8b5cf6', '#ffffff'],
+            ];
+
+            foreach ($defaultBtns as $b) {
+                $btnStmt->execute($b);
+            }
+        }
+    }
+}

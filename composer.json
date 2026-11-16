@@ -1,0 +1,13 @@
+{
+  "name": "vpn-bot/telegram-bot",
+  "description": "Multi-Panel VPN Telegram Bot with Web Admin, Mini App, Sanaei and Pasargad integration",
+  "type": "project",
+  "require": {
+    "php": ">=8.1"
+  },
+  "autoload": {
+    "psr-4": {
+      "App\\": "src/"
+    }
+  }
+}

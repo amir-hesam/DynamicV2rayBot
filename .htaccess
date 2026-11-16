@@ -1,0 +1,28 @@
+# ==============================================================
+# Apache Configuration for Shared cPanel Hosting (Without SSH)
+# ==============================================================
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # 1. Protect sensitive files and directories from web access
+    RewriteRule ^(database|config|src|views)/ - [F,L]
+    RewriteRule \.(db|sql|log|env|json|md)$ - [F,L]
+
+    # 2. Allow direct access to existing files and directories
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # 3. Route all other requests through index.php
+    RewriteRule ^(.*)$ index.php [QSA,L]
+</IfModule>
+
+# Fallback security if mod_rewrite is disabled
+<FilesMatch "\.(db|sql|log|env|json)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+Options -Indexes
