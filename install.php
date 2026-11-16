@@ -237,7 +237,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-            // 9. Lock installer
+            // 9. Process Optional MirzaBot Migration File
+            $migrationResultMsg = null;
+            if (!empty($_FILES['mirza_db_file']['tmp_name']) && is_uploaded_file($_FILES['mirza_db_file']['tmp_name'])) {
+                require_once __DIR__ . '/src/autoload.php';
+                $migRes = \App\Services\MigrationService::migrateFromFile($_FILES['mirza_db_file']['tmp_name'], $pdo);
+                if ($migRes['success']) {
+                    $migrationResultMsg = $migRes['message'];
+                } else {
+                    $migrationResultMsg = 'هشدار در مهاجرت دیتابیس میرزا: ' . ($migRes['error'] ?? 'خطای ناشناخته');
+                }
+            }
+
+            // 10. Lock installer
             file_put_contents($lockFile, date('Y-m-d H:i:s'));
 
             $success = true;
@@ -283,6 +295,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <?php if (!empty($webhookResultMsg)): ?>
                         <div class="mt-4 p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-emerald-400">
                             <?= htmlspecialchars($webhookResultMsg) ?>
+                        </div>
+                    <?php endif; ?>
+                    <?php if (!empty($migrationResultMsg)): ?>
+                        <div class="mt-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300">
+                            🚀 <b>وضعیت مهاجرت:</b> <?= htmlspecialchars($migrationResultMsg) ?>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -332,7 +349,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
 
             <!-- Install Form -->
-            <form action="" method="POST" class="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl space-y-6">
+            <form action="" method="POST" enctype="multipart/form-data" class="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl space-y-6">
 
                 <!-- 1. Database Configuration -->
                 <div class="space-y-4">
@@ -439,6 +456,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div>
                             <label class="block text-xs font-medium text-slate-300 mb-1.5">رمز عبور ادمین</label>
                             <input type="password" name="admin_password" value="admin123" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. MirzaBot Migration (Optional) -->
+                <div class="space-y-4">
+                    <div class="flex items-center gap-2 pb-2 border-b border-slate-800">
+                        <span class="w-6 h-6 rounded-lg bg-amber-600 flex items-center justify-center text-xs font-bold text-white">۴</span>
+                        <h3 class="font-bold text-white text-sm">مهاجرت از دیتابیس ربات میرزا (اختیاری)</h3>
+                    </div>
+                    <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            در صورتی که قبلاً از <b>ربات میرزا (MirzaBot)</b> استفاده می‌کردید، فایل خروجی دیتابیس آن (فایل <code>.sql</code> یا <code>.sqlite</code>) را انتخاب کنید تا تمام <b>کاربران، موجودی کیف پول‌ها، پنل‌ها، پلن‌ها، سرویس‌های فعال و سیستم استعلام‌گیری</b> بدون نقص به سیستم جدید منتقل شوند.
+                        </p>
+                        <div>
+                            <label class="block text-[11px] text-slate-400 mb-1">انتخاب فایل دیتابیس میرزا (.sql یا .sqlite)</label>
+                            <input type="file" name="mirza_db_file" accept=".sql,.sqlite,.db" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-xs text-slate-300 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer">
                         </div>
                     </div>
                 </div>

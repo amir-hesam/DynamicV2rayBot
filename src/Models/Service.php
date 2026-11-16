@@ -80,4 +80,73 @@ class Service
         $pdo = Database::getInstance();
         $pdo->prepare("UPDATE services SET is_active = 0 WHERE id = ?")->execute([$id]);
     }
+
+    /**
+     * Live sync service usage and status directly with the remote VPN panel
+     */
+    public static function syncWithPanel(int $id): ?array
+    {
+        $service = self::find($id);
+        if (!$service) {
+            return null;
+        }
+
+        $panel = Panel::find((int)$service['panel_id']);
+        if (!$panel || $panel['type'] === 'manual') {
+            return $service;
+        }
+
+        try {
+            $adapter = \App\Panels\PanelManager::make($panel);
+            $identifier = $service['client_email'] ?: $service['client_uuid'];
+            $clientData = $adapter->getClient($identifier);
+
+            if ($clientData && is_array($clientData)) {
+                $pdo = Database::getInstance();
+
+                // 1. Used bytes
+                $usedBytes = null;
+                if (isset($clientData['used_traffic'])) {
+                    $usedBytes = (int)$clientData['used_traffic'];
+                } elseif (isset($clientData['used_bytes'])) {
+                    $usedBytes = (int)$clientData['used_bytes'];
+                } elseif (isset($clientData['up']) || isset($clientData['down'])) {
+                    $usedBytes = (int)($clientData['up'] ?? 0) + (int)($clientData['down'] ?? 0);
+                }
+
+                if ($usedBytes !== null && $usedBytes >= 0) {
+                    $pdo->prepare("UPDATE services SET used_traffic_bytes = ? WHERE id = ?")->execute([$usedBytes, $id]);
+                    $service['used_traffic_bytes'] = $usedBytes;
+                }
+
+                // 2. Expiration date
+                $expireTime = $clientData['expire'] ?? ($clientData['expiryTime'] ?? ($clientData['expire_date'] ?? null));
+                if ($expireTime) {
+                    $expireTs = is_numeric($expireTime) ? (int)$expireTime : strtotime($expireTime);
+                    // Convert ms to s if > year 2100
+                    if ($expireTs > 4102444800) {
+                        $expireTs = (int)($expireTs / 1000);
+                    }
+                    if ($expireTs > 0) {
+                        $expiresAt = date('Y-m-d H:i:s', $expireTs);
+                        $pdo->prepare("UPDATE services SET expires_at = ? WHERE id = ?")->execute([$expiresAt, $id]);
+                        $service['expires_at'] = $expiresAt;
+                    }
+                }
+
+                // 3. Status
+                if (isset($clientData['status']) && in_array(strtolower($clientData['status']), ['disabled', 'expired', 'limited'])) {
+                    $pdo->prepare("UPDATE services SET is_active = 0 WHERE id = ?")->execute([$id]);
+                    $service['is_active'] = 0;
+                } elseif (isset($clientData['enable']) && $clientData['enable'] === false) {
+                    $pdo->prepare("UPDATE services SET is_active = 0 WHERE id = ?")->execute([$id]);
+                    $service['is_active'] = 0;
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log("Failed to sync service #{$id} with panel: " . $e->getMessage());
+        }
+
+        return $service;
+    }
 }

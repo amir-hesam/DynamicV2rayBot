@@ -196,6 +196,70 @@
             </div>
         </div>
 
+        <!-- Section: Telegram Forum Report Group & Topics -->
+        <div class="bg-slate-950/70 border border-slate-800 rounded-2xl p-6 space-y-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h4 class="font-bold text-white text-base flex items-center gap-2">
+                        <span>👥</span> گروه گزارشات تلگرام و تاپیک‌های انجمن (Forum Topics)
+                    </h4>
+                    <p class="text-xs text-slate-400 mt-1">ساخت و ارسال خودکار گزارشات خرید، فیش‌های مالی، بک‌آپ‌ها و خطاها در ۱۰ تاپیک مجزا</p>
+                </div>
+                <span class="px-3 py-1 rounded-xl bg-blue-500/10 text-blue-400 text-xs border border-blue-500/20">۱۰ تاپیک تخصصی</span>
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1.5">شناسه گروه گزارشات سوپرگروه (با منفی، مثلاً: 1001234567890-)</label>
+                <div class="flex items-center gap-3">
+                    <input type="text" name="report_group_id" id="report_group_id_input" value="<?= htmlspecialchars($settings['report_group_id'] ?? '') ?>" placeholder="-100..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-xs font-mono">
+                    <button type="button" onclick="syncForumTopics()" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs shadow-lg shadow-blue-600/30 transition flex items-center gap-1.5">
+                        <span>⚡</span> ساخت و هماهنگ‌سازی ۱۰ تاپیک
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-2">
+                <div class="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 text-center text-[11px] text-slate-300">📣 گزارش خرید</div>
+                <div class="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 text-center text-[11px] text-slate-300">🧪 گزارش اکانت تست</div>
+                <div class="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 text-center text-[11px] text-slate-300">💾 بک اپ ربات</div>
+                <div class="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 text-center text-[11px] text-slate-300">📢 اطلاع رسانی</div>
+                <div class="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 text-center text-[11px] text-slate-300">📊 گزارش شبانه</div>
+                <div class="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 text-center text-[11px] text-slate-300">💰 گزارش مالی</div>
+                <div class="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 text-center text-[11px] text-slate-300">👥 سایر گزارشات</div>
+                <div class="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 text-center text-[11px] text-slate-300">🚨 گزارش خطا</div>
+                <div class="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 text-center text-[11px] text-slate-300">🔄 تمدید و خدمات</div>
+                <div class="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 text-center text-[11px] text-slate-300">💎 پورسانت‌ها</div>
+            </div>
+        </div>
+
+        <!-- Section: Database Backup & Mirza Cron Job -->
+        <div class="bg-slate-950/70 border border-slate-800 rounded-2xl p-6 space-y-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h4 class="font-bold text-white text-base flex items-center gap-2">
+                        <span>💾</span> سیستم پشتیبان‌گیری خودکار (کرون‌جاب بک‌آپ دیتابیس)
+                    </h4>
+                    <p class="text-xs text-slate-400 mt-1">الگوبرداری دقیق از کرون‌جاب بک‌آپ ربات میرزا جهت ارسال مستقیم فایل به تلگرام</p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+                <a href="/admin/backup/download" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium transition flex items-center gap-2 border border-slate-700">
+                    <span>📥</span> دانلود مستقیم فایل دیتابیس (SQL / SQLite)
+                </a>
+                <button type="button" onclick="triggerSendBackup()" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition flex items-center gap-2 shadow-lg shadow-emerald-600/30">
+                    <span>🚀</span> ارسال پشتیبان به تلگرام (همین حالا)
+                </button>
+            </div>
+
+            <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2 text-xs">
+                <span class="font-bold text-slate-300">دستور تنظیم کرون‌جاب در cPanel (اجرا روزانه یا هر چند ساعت):</span>
+                <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80 font-mono text-[11px] text-amber-300 select-all">
+                    /usr/local/bin/php -q /home/<?= get_current_user() ?>/public_html/cron/backup.php
+                </div>
+            </div>
+        </div>
+
         <!-- Section 5: Web Admin Password -->
         <div class="bg-slate-950/70 border border-slate-800 rounded-2xl p-6">
             <h4 class="font-bold text-white text-base mb-2 flex items-center gap-2">
@@ -232,6 +296,39 @@ function updateColor(targetId, val) {
         p2.style.backgroundColor = accent;
         p2.style.color = textColor;
     }
+}
+
+function syncForumTopics() {
+    const groupId = document.getElementById('report_group_id_input').value.trim();
+    if (!groupId) {
+        alert('لطفا شناسه گروه گزارشات را وارد فرمایید.');
+        return;
+    }
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/admin/reports/sync-topics';
+
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'report_group_id';
+    input.value = groupId;
+
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function triggerSendBackup() {
+    if (!confirm('آیا مایلید فایل بک‌آپ دیتابیس همین حالا به تاپیک پشتیبان در تلگرام ارسال شود؟')) {
+        return;
+    }
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/admin/backup/send-telegram';
+    document.body.appendChild(form);
+    form.submit();
 }
 
 function setTelegramWebhook() {

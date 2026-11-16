@@ -55,7 +55,11 @@
                 </a>
 
                 <a href="/admin/customization" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition <?= ($activeMenu ?? '') === 'customization' ? 'bg-blue-600 text-white font-medium shadow-md' : 'text-slate-400 hover:bg-slate-900 hover:text-white' ?>">
-                    <span>🎨</span> تنظیمات کلی و متون
+                    <span>🎨</span> تنظیمات، گزارشات و بک‌آپ
+                </a>
+
+                <a href="/admin/migration" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition <?= ($activeMenu ?? '') === 'migration' ? 'bg-amber-600 text-white font-medium shadow-md' : 'text-slate-400 hover:bg-slate-900 hover:text-white' ?>">
+                    <span>🚀</span> مهاجرت از میرزابوت
                 </a>
 
                 <a href="/admin/users" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition <?= ($activeMenu ?? '') === 'users' ? 'bg-blue-600 text-white font-medium shadow-md' : 'text-slate-400 hover:bg-slate-900 hover:text-white' ?>">

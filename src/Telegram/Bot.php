@@ -44,13 +44,15 @@ class Bot
         curl_setopt($ch, CURLOPT_TIMEOUT, 30);
 
         $response = curl_exec($ch);
-        curl_close($ch);
+        if (PHP_VERSION_ID < 80500) {
+            @curl_close($ch);
+        }
 
         $decoded = json_decode($response, true);
         return is_array($decoded) ? $decoded : ['ok' => false, 'raw' => $response];
     }
 
-    public function sendDocument(int|string $chatId, string $filePath, string $caption = '', array $replyMarkup = [], string $parseMode = 'HTML'): array
+    public function sendDocument(int|string $chatId, string $filePath, string $caption = '', array $replyMarkup = [], string $parseMode = 'HTML', ?int $messageThreadId = null): array
     {
         $params = [
             'chat_id' => $chatId,
@@ -59,6 +61,10 @@ class Bot
             'parse_mode' => $parseMode,
         ];
 
+        if ($messageThreadId !== null) {
+            $params['message_thread_id'] = $messageThreadId;
+        }
+
         if (!empty($replyMarkup)) {
             $params['reply_markup'] = json_encode($replyMarkup);
         }
@@ -66,13 +72,17 @@ class Bot
         return $this->request('sendDocument', $params);
     }
 
-    public function sendMessage(int|string $chatId, string $text, array $replyMarkup = [], string $parseMode = 'HTML'): array
+    public function sendMessage(int|string $chatId, string $text, array $replyMarkup = [], string $parseMode = 'HTML', ?int $messageThreadId = null): array
     {
         $params = [
             'chat_id' => $chatId,
             'text' => $text,
             'parse_mode' => $parseMode,
         ];
+
+        if ($messageThreadId !== null) {
+            $params['message_thread_id'] = $messageThreadId;
+        }
 
         if (!empty($replyMarkup)) {
             $params['reply_markup'] = json_encode($replyMarkup);
@@ -81,7 +91,7 @@ class Bot
         return $this->request('sendMessage', $params);
     }
 
-    public function sendPhoto(int|string $chatId, string $photo, string $caption = '', array $replyMarkup = [], string $parseMode = 'HTML'): array
+    public function sendPhoto(int|string $chatId, string $photo, string $caption = '', array $replyMarkup = [], string $parseMode = 'HTML', ?int $messageThreadId = null): array
     {
         $params = [
             'chat_id' => $chatId,
@@ -90,11 +100,66 @@ class Bot
             'parse_mode' => $parseMode,
         ];
 
+        if ($messageThreadId !== null) {
+            $params['message_thread_id'] = $messageThreadId;
+        }
+
         if (!empty($replyMarkup)) {
             $params['reply_markup'] = json_encode($replyMarkup);
         }
 
         return $this->request('sendPhoto', $params);
+    }
+
+    /**
+     * Create a forum topic in a supergroup
+     */
+    public function createForumTopic(int|string $chatId, string $name, ?int $iconColor = null, ?string $iconCustomEmojiId = null): array
+    {
+        $params = [
+            'chat_id' => $chatId,
+            'name' => $name,
+        ];
+
+        if ($iconColor !== null) {
+            $params['icon_color'] = $iconColor;
+        }
+        if ($iconCustomEmojiId !== null) {
+            $params['icon_custom_emoji_id'] = $iconCustomEmojiId;
+        }
+
+        return $this->request('createForumTopic', $params);
+    }
+
+    /**
+     * Edit a forum topic
+     */
+    public function editForumTopic(int|string $chatId, int $messageThreadId, ?string $name = null, ?string $iconCustomEmojiId = null): array
+    {
+        $params = [
+            'chat_id' => $chatId,
+            'message_thread_id' => $messageThreadId,
+        ];
+
+        if ($name !== null) {
+            $params['name'] = $name;
+        }
+        if ($iconCustomEmojiId !== null) {
+            $params['icon_custom_emoji_id'] = $iconCustomEmojiId;
+        }
+
+        return $this->request('editForumTopic', $params);
+    }
+
+    /**
+     * Delete a forum topic
+     */
+    public function deleteForumTopic(int|string $chatId, int $messageThreadId): array
+    {
+        return $this->request('deleteForumTopic', [
+            'chat_id' => $chatId,
+            'message_thread_id' => $messageThreadId,
+        ]);
     }
 
     public function editMessageText(int|string $chatId, int $messageId, string $text, array $replyMarkup = [], string $parseMode = 'HTML'): array

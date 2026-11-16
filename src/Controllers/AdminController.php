@@ -572,4 +572,111 @@ class AdminController
         ]);
         unset($_SESSION['flash_success']);
     }
+
+    // --- Migration from MirzaBot ---
+    public function migrationView(Request $request): void
+    {
+        $currentAdmin = $this->authCheck('customization');
+
+        View::render('admin.migration', [
+            'title' => 'مهاجرت از دیتابیس میرزا (MirzaBot)',
+            'activeMenu' => 'migration',
+            'currentAdmin' => $currentAdmin,
+            'flash_success' => $_SESSION['flash_success'] ?? null,
+            'flash_error' => $_SESSION['flash_error'] ?? null,
+        ]);
+        unset($_SESSION['flash_success'], $_SESSION['flash_error']);
+    }
+
+    public function handleMigration(Request $request): void
+    {
+        $this->authCheck('customization');
+
+        if (empty($_FILES['db_file']['tmp_name']) || !is_uploaded_file($_FILES['db_file']['tmp_name'])) {
+            $_SESSION['flash_error'] = 'لطفاً فایل دیتابیس میرزا (.sql یا .sqlite) را بارگذاری فرمایید.';
+            Response::redirect('/admin/migration');
+        }
+
+        $res = \App\Services\MigrationService::migrateFromFile($_FILES['db_file']['tmp_name']);
+
+        if ($res['success']) {
+            $_SESSION['flash_success'] = $res['message'];
+        } else {
+            $_SESSION['flash_error'] = $res['error'] ?? 'خطای ناشناخته در مهاجرت اطلاعات';
+        }
+
+        Response::redirect('/admin/migration');
+    }
+
+    // --- Forum Report Topics Sync ---
+    public function syncReportTopics(Request $request): void
+    {
+        $this->authCheck('customization');
+        $groupId = trim($request->post('report_group_id', ''));
+
+        if (empty($groupId)) {
+            $_SESSION['flash_error'] = 'شناسه گروه گزارشات الزامی است (مثال: 1001234567890-)';
+            Response::redirect('/admin/customization');
+        }
+
+        $res = \App\Services\ReportHelper::syncTopics($groupId);
+
+        if (!empty($res['success'])) {
+            $_SESSION['flash_success'] = "۱۰ تاپیک گروه گزارشات با موفقیت در گروه تلگرام ساخته و هماهنگ شدند! ✅";
+        } else {
+            $_SESSION['flash_error'] = "خطا در ساخت تاپیک‌ها: " . ($res['error'] ?? 'خطای تلگرام');
+        }
+
+        Response::redirect('/admin/customization');
+    }
+
+    // --- Database Backup (Download & Telegram) ---
+    public function downloadBackup(Request $request): void
+    {
+        $this->authCheck('customization');
+        $dumpFile = \App\Services\BackupService::createDatabaseDump();
+
+        if (!$dumpFile || !file_exists($dumpFile)) {
+            die("خطا در ایجاد فایل پشتیبان دیتابیس.");
+        }
+
+        header('Content-Description: File Transfer');
+        header('Content-Type: application/octet-stream');
+        header('Content-Disposition: attachment; filename="' . basename($dumpFile) . '"');
+        header('Expires: 0');
+        header('Cache-Control: must-revalidate');
+        header('Pragma: public');
+        header('Content-Length: ' . filesize($dumpFile));
+        readfile($dumpFile);
+        @unlink($dumpFile);
+        exit;
+    }
+
+    public function sendBackupToTelegram(Request $request): void
+    {
+        $this->authCheck('customization');
+        $res = \App\Services\BackupService::runBackupJob();
+
+        if ($res['success']) {
+            $_SESSION['flash_success'] = "فایل پشتیبان دیتابیس با موفقیت تولید و به تاپیک/ادمین تلگرام ارسال شد! 💾";
+        } else {
+            $_SESSION['flash_error'] = "خطا در ارسال فایل پشتیبان: " . ($res['error'] ?? 'خطای نامشخص');
+        }
+
+        Response::redirect('/admin/customization');
+    }
+
+    public function cronBackup(Request $request): void
+    {
+        $cronSecret = Setting::get('cron_secret_key');
+        if (!empty($cronSecret)) {
+            $reqKey = $request->query('key', '');
+            if ($reqKey !== $cronSecret) {
+                Response::json(['ok' => false, 'error' => 'Unauthorized'], 403);
+            }
+        }
+
+        $res = \App\Services\BackupService::runBackupJob();
+        Response::json($res);
+    }
 }

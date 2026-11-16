@@ -153,7 +153,48 @@ $panelLabels = \App\Panels\PanelManager::getAllPanelTypes();
                 </div>
             </div>
 
-            <div class="flex items-center gap-2 pt-2">
+            <!-- Custom Service Settings for this Panel -->
+            <div class="p-4 rounded-2xl bg-slate-950/80 border border-slate-800/80 space-y-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" name="custom_service_enabled" id="panel_custom_enabled" value="1" class="w-4 h-4 rounded text-blue-600 bg-slate-900 border-slate-800">
+                        <label for="panel_custom_enabled" class="text-xs font-bold text-white">فعالسازی «ساخت سرویس دلخواه» برای این سرور</label>
+                    </div>
+                    <span class="text-[10px] text-amber-400">تنظیمات اختصاصی قیمت و حجم</span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 pt-1">
+                    <div>
+                        <label class="block text-[11px] text-slate-400 mb-1">قیمت هر ۱ گیگابایت (تومان)</label>
+                        <input type="number" name="price_per_gb" id="panel_price_gb" value="4000" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-white text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-slate-400 mb-1">قیمت هر ۱ روز (تومان)</label>
+                        <input type="number" name="price_per_day" id="panel_price_day" value="1000" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-white text-xs">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-4 gap-2 pt-1 text-[11px]">
+                    <div>
+                        <label class="block text-slate-400 mb-1">حداقل حجم (GB)</label>
+                        <input type="number" name="min_gb" id="panel_min_gb" value="5" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-white text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">حداکثر حجم (GB)</label>
+                        <input type="number" name="max_gb" id="panel_max_gb" value="500" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-white text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">حداقل روز</label>
+                        <input type="number" name="min_days" id="panel_min_days" value="1" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-white text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">حداکثر روز</label>
+                        <input type="number" name="max_days" id="panel_max_days" value="365" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-white text-xs">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 pt-1">
                 <input type="checkbox" name="is_active" id="panel_is_active" value="1" checked class="w-4 h-4 rounded text-blue-600 bg-slate-950 border-slate-800">
                 <label for="panel_is_active" class="text-xs text-slate-300">پنل فعال باشد و در صدور کانفیگ استفاده شود</label>
             </div>
@@ -190,6 +231,13 @@ function openPanelModal() {
     document.getElementById('panel_password').value = '';
     document.getElementById('panel_inbounds').value = '[]';
     document.getElementById('panel_capacity').value = '500';
+    document.getElementById('panel_custom_enabled').checked = false;
+    document.getElementById('panel_price_gb').value = '4000';
+    document.getElementById('panel_price_day').value = '1000';
+    document.getElementById('panel_min_gb').value = '5';
+    document.getElementById('panel_max_gb').value = '500';
+    document.getElementById('panel_min_days').value = '1';
+    document.getElementById('panel_max_days').value = '365';
     document.getElementById('panel_is_active').checked = true;
     selectType('sanaei');
 
@@ -206,6 +254,13 @@ function editPanel(data) {
     document.getElementById('panel_password').value = data.password;
     document.getElementById('panel_inbounds').value = data.inbounds_json || '[]';
     document.getElementById('panel_capacity').value = data.capacity || 500;
+    document.getElementById('panel_custom_enabled').checked = data.custom_service_enabled == 1;
+    document.getElementById('panel_price_gb').value = data.price_per_gb || 4000;
+    document.getElementById('panel_price_day').value = data.price_per_day || 1000;
+    document.getElementById('panel_min_gb').value = data.min_gb || 5;
+    document.getElementById('panel_max_gb').value = data.max_gb || 500;
+    document.getElementById('panel_min_days').value = data.min_days || 1;
+    document.getElementById('panel_max_days').value = data.max_days || 365;
     document.getElementById('panel_is_active').checked = data.is_active == 1;
     selectType(data.type || 'sanaei');
 

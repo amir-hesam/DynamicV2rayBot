@@ -273,24 +273,37 @@ class Handler
         // View single service
         if (str_starts_with($data, 'view_service_')) {
             $srvId = (int)str_replace('view_service_', '', $data);
-            $service = Service::find($srvId);
+            $service = Service::syncWithPanel($srvId) ?: Service::find($srvId);
             if (!$service || $service['user_id'] != $user['id']) {
                 $this->bot->answerCallbackQuery($callbackId, "سرویس یافت نشد.", true);
                 return;
             }
 
-            $trafficGb = $service['traffic_gb'];
-            $usedGb = round($service['used_traffic_bytes'] / 1073741824, 2);
+            $trafficGb = (int)$service['traffic_gb'];
+            $usedBytes = (int)$service['used_traffic_bytes'];
+            $usedGb = round($usedBytes / 1073741824, 2);
+            $remGb = ($trafficGb > 0) ? max(0, round($trafficGb - ($usedBytes / 1073741824), 2)) : 'نامحدود';
             $ipLim = ($service['ip_limit'] > 0) ? "{$service['ip_limit']} کاربر" : "نامحدود";
 
-            $text = "🔑 <b>اطلاعات اشتراک #{$service['id']}:</b>\n\n";
-            $text .= "🌐 <b>سرور:</b> {$service['panel_name']}\n";
-            $text .= "📊 <b>میزان مصرف:</b> {$usedGb} GB از {$trafficGb} GB\n";
+            // Progress bar
+            $pct = ($trafficGb > 0) ? min(100, round(($usedBytes / ($trafficGb * 1073741824)) * 100)) : 0;
+            $filledBlocks = (int)round($pct / 10);
+            $emptyBlocks = 10 - $filledBlocks;
+            $bar = str_repeat('🟩', $filledBlocks) . str_repeat('⬜', $emptyBlocks);
+
+            $statusText = $service['is_active'] ? '🟢 فعال' : '🔴 غیرفعال / منقضی شده';
+
+            $text = "🔑 <b>استعلام زنده اشتراک #{$service['id']}:</b>\n\n";
+            $text .= "🌐 <b>سرور متصل:</b> {$service['panel_name']}\n";
+            $text .= "📡 <b>وضعیت:</b> {$statusText}\n";
+            $text .= "📊 <b>میزان مصرف:</b> {$usedGb} GB از {$trafficGb} GB ({$pct}%)\n";
+            $text .= "📈 <b>پیشرفت مصرف:</b>\n{$bar}\n";
+            $text .= "🎁 <b>حجم باقی‌مانده:</b> {$remGb} GB\n";
             $text .= "👥 <b>محدودیت اتصال:</b> {$ipLim}\n";
-            $text .= "⏳ <b>انقضا:</b> " . ($service['expires_at'] ?: 'نامحدود') . "\n\n";
+            $text .= "⏳ <b>تاریخ انقضا:</b> " . ($service['expires_at'] ?: 'نامحدود') . "\n\n";
 
             if (!empty($service['subscription_url'])) {
-                $text .= "🔗 <b>لینک سابسکریپشن:</b>\n<code>{$service['subscription_url']}</code>\n\n";
+                $text .= "🔗 <b>لینک اتصال سابسکریپشن:</b>\n<code>{$service['subscription_url']}</code>\n\n";
             }
             if (!empty($service['config_link'])) {
                 $text .= "📋 <b>کانفیگ مستقیم:</b>\n<code>{$service['config_link']}</code>\n\n";

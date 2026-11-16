@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS settings (
 CREATE TABLE IF NOT EXISTS panels (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(150) NOT NULL,
-    type VARCHAR(50) NOT NULL, -- 'sanaei' or 'pasargad'
+    type VARCHAR(50) NOT NULL,
     url TEXT NOT NULL,
     username VARCHAR(150) NOT NULL,
     password TEXT NOT NULL,
@@ -16,6 +16,14 @@ CREATE TABLE IF NOT EXISTS panels (
     is_active INTEGER DEFAULT 1,
     capacity INTEGER DEFAULT 500,
     current_clients INTEGER DEFAULT 0,
+    custom_service_enabled INTEGER DEFAULT 0,
+    price_per_gb INTEGER DEFAULT 4000,
+    price_per_day INTEGER DEFAULT 1000,
+    min_gb INTEGER DEFAULT 5,
+    max_gb INTEGER DEFAULT 500,
+    min_days INTEGER DEFAULT 1,
+    max_days INTEGER DEFAULT 365,
+    categories_json TEXT DEFAULT '["یک ماهه", "دو ماهه", "سه ماهه", "نامحدود"]',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -23,6 +31,7 @@ CREATE TABLE IF NOT EXISTS plans (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(150) NOT NULL,
     description TEXT,
+    category VARCHAR(100) DEFAULT 'یک ماهه',
     price INTEGER NOT NULL DEFAULT 0, -- Toman
     traffic_gb INTEGER NOT NULL DEFAULT 0,
     days INTEGER NOT NULL DEFAULT 30,

@@ -93,6 +93,13 @@ class PaymentService
             }
         }
 
+        // 5. Send Report to Forum Topic (if configured)
+        try {
+            ReportHelper::reportPurchase($order, $user, $serviceData, $panel['name'] ?? null);
+        } catch (\Throwable $e) {
+            // Ignore reporting errors
+        }
+
         return $serviceData;
     }
 
@@ -156,6 +163,13 @@ class PaymentService
             $bot->sendPhoto($adminId, $order['receipt_photo'], $caption, $keyboard);
         } else {
             $bot->sendMessage($adminId, $caption, $keyboard);
+        }
+
+        // Also report to financial topic if group is configured
+        try {
+            ReportHelper::reportFinancial($order, ['first_name' => $order['first_name'] ?? '', 'telegram_id' => $order['telegram_id'] ?? 0], $order['receipt_text'] ?? '');
+        } catch (\Throwable $e) {
+            // Ignore
         }
     }
 }

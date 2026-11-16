@@ -31,12 +31,13 @@ class Plan
     public static function create(array $data): int
     {
         $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("INSERT INTO plans (name, description, price, traffic_gb, days, ip_limit, panel_id, is_active, sort_order) 
-            VALUES (:name, :description, :price, :traffic_gb, :days, :ip_limit, :panel_id, :is_active, :sort_order)");
+        $stmt = $pdo->prepare("INSERT INTO plans (name, description, category, price, traffic_gb, days, ip_limit, panel_id, is_active, sort_order) 
+            VALUES (:name, :description, :category, :price, :traffic_gb, :days, :ip_limit, :panel_id, :is_active, :sort_order)");
 
         $stmt->execute([
             'name' => $data['name'],
             'description' => $data['description'] ?? '',
+            'category' => $data['category'] ?? 'یک ماهه',
             'price' => (int)$data['price'],
             'traffic_gb' => (int)$data['traffic_gb'],
             'days' => (int)($data['days'] ?? 30),
@@ -55,6 +56,7 @@ class Plan
         $stmt = $pdo->prepare("UPDATE plans SET 
             name = :name, 
             description = :description, 
+            category = :category,
             price = :price, 
             traffic_gb = :traffic_gb, 
             days = :days, 
@@ -68,6 +70,7 @@ class Plan
             'id' => $id,
             'name' => $data['name'],
             'description' => $data['description'] ?? '',
+            'category' => $data['category'] ?? 'یک ماهه',
             'price' => (int)$data['price'],
             'traffic_gb' => (int)$data['traffic_gb'],
             'days' => (int)($data['days'] ?? 30),

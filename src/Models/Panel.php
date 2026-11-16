@@ -26,12 +26,12 @@ class Panel
     public static function create(array $data): int
     {
         $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("INSERT INTO panels (name, type, url, username, password, inbounds_json, is_active, capacity, current_clients) 
-            VALUES (:name, :type, :url, :username, :password, :inbounds_json, :is_active, :capacity, :current_clients)");
+        $stmt = $pdo->prepare("INSERT INTO panels (name, type, url, username, password, inbounds_json, is_active, capacity, current_clients, custom_service_enabled, price_per_gb, price_per_day, min_gb, max_gb, min_days, max_days, categories_json) 
+            VALUES (:name, :type, :url, :username, :password, :inbounds_json, :is_active, :capacity, :current_clients, :custom_service_enabled, :price_per_gb, :price_per_day, :min_gb, :max_gb, :min_days, :max_days, :categories_json)");
         
         $stmt->execute([
             'name' => $data['name'],
-            'type' => $data['type'], // 'sanaei' or 'pasargad'
+            'type' => $data['type'],
             'url' => rtrim($data['url'], '/'),
             'username' => $data['username'],
             'password' => $data['password'],
@@ -39,6 +39,14 @@ class Panel
             'is_active' => (int)($data['is_active'] ?? 1),
             'capacity' => (int)($data['capacity'] ?? 500),
             'current_clients' => (int)($data['current_clients'] ?? 0),
+            'custom_service_enabled' => (int)($data['custom_service_enabled'] ?? 0),
+            'price_per_gb' => (int)($data['price_per_gb'] ?? 4000),
+            'price_per_day' => (int)($data['price_per_day'] ?? 1000),
+            'min_gb' => (int)($data['min_gb'] ?? 5),
+            'max_gb' => (int)($data['max_gb'] ?? 500),
+            'min_days' => (int)($data['min_days'] ?? 1),
+            'max_days' => (int)($data['max_days'] ?? 365),
+            'categories_json' => $data['categories_json'] ?? '["یک ماهه", "دو ماهه", "سه ماهه", "نامحدود"]',
         ]);
 
         return (int)$pdo->lastInsertId();
@@ -55,7 +63,15 @@ class Panel
             password = :password, 
             inbounds_json = :inbounds_json, 
             is_active = :is_active, 
-            capacity = :capacity 
+            capacity = :capacity,
+            custom_service_enabled = :custom_service_enabled,
+            price_per_gb = :price_per_gb,
+            price_per_day = :price_per_day,
+            min_gb = :min_gb,
+            max_gb = :max_gb,
+            min_days = :min_days,
+            max_days = :max_days,
+            categories_json = :categories_json
             WHERE id = :id");
 
         return $stmt->execute([
@@ -68,6 +84,14 @@ class Panel
             'inbounds_json' => $data['inbounds_json'] ?? '[]',
             'is_active' => (int)($data['is_active'] ?? 1),
             'capacity' => (int)($data['capacity'] ?? 500),
+            'custom_service_enabled' => (int)($data['custom_service_enabled'] ?? 0),
+            'price_per_gb' => (int)($data['price_per_gb'] ?? 4000),
+            'price_per_day' => (int)($data['price_per_day'] ?? 1000),
+            'min_gb' => (int)($data['min_gb'] ?? 5),
+            'max_gb' => (int)($data['max_gb'] ?? 500),
+            'min_days' => (int)($data['min_days'] ?? 1),
+            'max_days' => (int)($data['max_days'] ?? 365),
+            'categories_json' => $data['categories_json'] ?? '["یک ماهه", "دو ماهه", "سه ماهه", "نامحدود"]',
         ]);
     }
 

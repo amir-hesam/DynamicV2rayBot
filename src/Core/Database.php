@@ -54,11 +54,26 @@ class Database
             }
         }
 
-        // Migrate wireguard_conf column if missing
-        try {
-            $pdo->exec("ALTER TABLE services ADD COLUMN wireguard_conf TEXT");
-        } catch (\Throwable $e) {
-            // Already exists
+        // Migrate columns if missing
+        $migrations = [
+            "ALTER TABLE services ADD COLUMN wireguard_conf TEXT",
+            "ALTER TABLE panels ADD COLUMN custom_service_enabled INTEGER DEFAULT 0",
+            "ALTER TABLE panels ADD COLUMN price_per_gb INTEGER DEFAULT 4000",
+            "ALTER TABLE panels ADD COLUMN price_per_day INTEGER DEFAULT 1000",
+            "ALTER TABLE panels ADD COLUMN min_gb INTEGER DEFAULT 5",
+            "ALTER TABLE panels ADD COLUMN max_gb INTEGER DEFAULT 500",
+            "ALTER TABLE panels ADD COLUMN min_days INTEGER DEFAULT 1",
+            "ALTER TABLE panels ADD COLUMN max_days INTEGER DEFAULT 365",
+            "ALTER TABLE panels ADD COLUMN categories_json TEXT DEFAULT '[\"یک ماهه\", \"دو ماهه\", \"سه ماهه\", \"نامحدود\"]'",
+            "ALTER TABLE plans ADD COLUMN category VARCHAR(100) DEFAULT 'یک ماهه'",
+        ];
+
+        foreach ($migrations as $mSql) {
+            try {
+                $pdo->exec($mSql);
+            } catch (\Throwable $e) {
+                // Ignore if column already exists
+            }
         }
 
         // Initialize default settings if not exists
