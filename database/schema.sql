@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS plans (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(150) NOT NULL,
     description TEXT,
-    category VARCHAR(100) DEFAULT 'یک ماهه',
+    category VARCHAR(100),
     price INTEGER NOT NULL DEFAULT 0, -- Toman
     traffic_gb INTEGER NOT NULL DEFAULT 0,
     days INTEGER NOT NULL DEFAULT 30,

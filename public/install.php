@@ -128,17 +128,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sql = file_get_contents($schemaFile);
 
             if ($dbDriver === 'mysql') {
+                $pdo->exec("SET NAMES utf8mb4");
+                $pdo->exec("SET SQL_MODE=''");
+
                 // Adapt SQLite syntax to MySQL
                 $sql = str_replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'INT PRIMARY KEY AUTO_INCREMENT', $sql);
                 $sql = str_replace('DATETIME DEFAULT CURRENT_TIMESTAMP', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP', $sql);
                 // MySQL 5.7/8.0 TEXT columns cannot have literal default values
                 $sql = preg_replace('/TEXT\s+DEFAULT\s+[\'"][^\'"]*[\'"]/i', 'TEXT', $sql);
+                // Strip any non-ASCII Persian/Arabic characters from DEFAULT values for MySQL compatibility
+                $sql = preg_replace('/DEFAULT\s+[\'"][^\x00-\x7F]+[\'"]/u', '', $sql);
             }
 
             $statements = array_filter(array_map('trim', explode(';', $sql)));
             foreach ($statements as $stmt) {
                 if (!empty($stmt)) {
-                    $pdo->exec($stmt);
+                    if ($dbDriver === 'mysql' && stripos($stmt, 'CREATE TABLE') !== false) {
+                        $stmt .= ' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci';
+                    }
+                    try {
+                        $pdo->exec($stmt);
+                    } catch (\Throwable $ex) {
+                        // If table already exists or minor syntax notice, log and proceed
+                        error_log("Schema statement notice: " . $ex->getMessage());
+                        if (!str_contains($ex->getMessage(), 'already exists')) {
+                            throw $ex;
+                        }
+                    }
                 }
             }
 
