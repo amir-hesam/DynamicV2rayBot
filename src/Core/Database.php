@@ -8,6 +8,7 @@ use PDOException;
 class Database
 {
     private static ?PDO $instance = null;
+    private static bool $schemaChecked = false;
 
     public static function getInstance(): PDO
     {
@@ -28,11 +29,18 @@ class Database
                     self::$instance->exec('PRAGMA journal_mode = WAL;');
                 } else {
                     $m = $config['mysql'];
-                    $dsn = "mysql:host={$m['host']};port={$m['port']};dbname={$m['database']};charset={$m['charset']}";
+                    $charset = $m['charset'] ?? 'utf8mb4';
+                    $dsn = "mysql:host={$m['host']};port={$m['port']};dbname={$m['database']};charset={$charset}";
                     self::$instance = new PDO($dsn, $m['username'], $m['password'], [
                         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                     ]);
+                    try {
+                        self::$instance->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;");
+                        self::$instance->exec("SET CHARACTER SET utf8mb4;");
+                        self::$instance->exec("SET collation_connection = 'utf8mb4_unicode_ci';");
+                        self::$instance->exec("SET SQL_MODE='';");
+                    } catch (\Throwable $e) {}
                 }
             } catch (PDOException $e) {
                 die("Database connection failed: " . $e->getMessage());
@@ -42,15 +50,60 @@ class Database
         return self::$instance;
     }
 
-    public static function initSchema(): void
+    public static function initSchema(bool $force = false): void
     {
+        if (self::$schemaChecked && !$force) {
+            return;
+        }
+        self::$schemaChecked = true;
+
+        $config = require __DIR__ . '/../../config/database.php';
+        $driver = $config['driver'] ?? 'sqlite';
         $pdo = self::getInstance();
+
+        if (!$force) {
+            try {
+                // If tables already exist, skip heavy schema re-creation
+                $test = $pdo->query("SELECT 1 FROM settings LIMIT 1");
+                if ($test !== false) {
+                    return;
+                }
+            } catch (\Throwable $e) {
+                // Settings table does not exist, proceed with creation
+            }
+        }
+
+        if ($driver === 'mysql') {
+            try {
+                $pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;");
+                $pdo->exec("SET CHARACTER SET utf8mb4;");
+                $pdo->exec("SET collation_connection = 'utf8mb4_unicode_ci';");
+                $pdo->exec("SET SQL_MODE='';");
+            } catch (\Throwable $e) {}
+        }
+
         $schema = file_get_contents(__DIR__ . '/../../database/schema.sql');
+
+        if ($driver === 'mysql') {
+            // Adapt SQLite syntax to MySQL
+            $schema = str_replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'INT PRIMARY KEY AUTO_INCREMENT', $schema);
+            $schema = str_replace('DATETIME DEFAULT CURRENT_TIMESTAMP', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP', $schema);
+            $schema = preg_replace('/TEXT\s+DEFAULT\s+[\'"][^\'"]*[\'"]/i', 'TEXT', $schema);
+            $schema = preg_replace('/DEFAULT\s+[\'"][^\x00-\x7F]+[\'"]/u', '', $schema);
+        }
+
         $statements = array_filter(array_map('trim', explode(';', $schema)));
 
         foreach ($statements as $stmt) {
             if (!empty($stmt)) {
-                $pdo->exec($stmt);
+                if ($driver === 'mysql' && stripos($stmt, 'CREATE TABLE') !== false) {
+                    $stmt .= ' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci';
+                }
+                try {
+                    $pdo->exec($stmt);
+                } catch (\Throwable $e) {
+                    // Ignore if table already exists or minor syntax warning
+                }
             }
         }
 
@@ -76,8 +129,20 @@ class Database
             }
         }
 
+        // Convert all existing tables and columns to utf8mb4_unicode_ci for MySQL
+        if ($driver === 'mysql') {
+            $tables = ['settings', 'panels', 'plans', 'bank_cards', 'users', 'orders', 'services', 'admins', 'bot_buttons'];
+            foreach ($tables as $t) {
+                try {
+                    $pdo->exec("ALTER TABLE `{$t}` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+                } catch (\Throwable $e) {}
+            }
+        }
+
         // Initialize default settings if not exists
-        self::seedDefaults();
+        try {
+            self::seedDefaults();
+        } catch (\Throwable $e) {}
     }
 
     private static function seedDefaults(): void
@@ -116,7 +181,11 @@ class Database
             'card_instruction' => "💳 شماره کارت فعال جهت واریز:\nشماره کارت: %card_number%\nبه نام: %holder_name%\nبانک: %bank_name%\n\nلطفا پس از واریز مبلغ %amount% تومان، تصویر رسید پرداختی خود را به عنوان عکس در ربات بفرستید.",
         ];
 
-        $stmt = $pdo->prepare("INSERT OR IGNORE INTO settings (`key`, `value`) VALUES (:key, :value)");
+        $driver = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        $insertIgnoreSql = ($driver === 'sqlite') 
+            ? "INSERT OR IGNORE INTO settings (`key`, `value`) VALUES (:key, :value)"
+            : "INSERT IGNORE INTO settings (`key`, `value`) VALUES (:key, :value)";
+        $stmt = $pdo->prepare($insertIgnoreSql);
         foreach ($defaultSettings as $key => $val) {
             $stmt->execute(['key' => $key, 'value' => $val]);
         }

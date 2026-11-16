@@ -49,6 +49,26 @@ class MigrationService
         ];
 
         try {
+            $isMysql = ($targetPdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql');
+            if ($isMysql) {
+                try {
+                    $targetPdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;");
+                    $targetPdo->exec("SET CHARACTER SET utf8mb4;");
+                    $targetPdo->exec("SET collation_connection = 'utf8mb4_unicode_ci';");
+                    $targetPdo->exec("SET SQL_MODE='';");
+
+                    // Ensure all tables are converted to utf8mb4
+                    $tbls = ['users', 'panels', 'plans', 'services', 'settings', 'admins', 'bank_cards', 'orders', 'bot_buttons'];
+                    foreach ($tbls as $tbl) {
+                        try {
+                            $targetPdo->exec("ALTER TABLE `{$tbl}` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;");
+                        } catch (\Throwable $e) {}
+                    }
+                } catch (\Throwable $e) {}
+            }
+
+            $collate = $isMysql ? " COLLATE utf8mb4_unicode_ci" : "";
+
             // A. Import Users & Balances
             $userMap = []; // telegram_id => local_user_id
             $stmtUserCheck = $targetPdo->prepare("SELECT id FROM users WHERE telegram_id = ?");
@@ -57,180 +77,192 @@ class MigrationService
             $stmtUserUpdate = $targetPdo->prepare("UPDATE users SET username = :username, first_name = :first_name, balance = :balance WHERE id = :id");
 
             foreach ($users as $u) {
-                $tgId = (string)($u['id'] ?? ($u['telegram_id'] ?? ''));
-                if (empty($tgId) || !is_numeric($tgId)) {
-                    continue;
-                }
+                try {
+                    $tgId = (string)($u['id'] ?? ($u['telegram_id'] ?? ''));
+                    if (empty($tgId) || !is_numeric($tgId)) {
+                        continue;
+                    }
 
-                $username = !empty($u['username']) && $u['username'] !== 'none' ? $u['username'] : null;
-                $firstName = !empty($u['namecustom']) && $u['namecustom'] !== 'none' ? $u['namecustom'] : ($username ?: 'کاربر میرزا');
-                $balance = isset($u['Balance']) ? (int)$u['Balance'] : (isset($u['balance']) ? (int)$u['balance'] : 0);
-                
-                $regTime = $u['register'] ?? null;
-                $createdAt = (is_numeric($regTime) && $regTime > 1000000000) 
-                    ? date('Y-m-d H:i:s', (int)$regTime) 
-                    : date('Y-m-d H:i:s');
+                    $username = !empty($u['username']) && $u['username'] !== 'none' ? $u['username'] : null;
+                    $firstName = !empty($u['namecustom']) && $u['namecustom'] !== 'none' ? $u['namecustom'] : ($username ?: 'کاربر میرزا');
+                    $balance = isset($u['Balance']) ? (int)$u['Balance'] : (isset($u['balance']) ? (int)$u['balance'] : 0);
+                    
+                    $regTime = $u['register'] ?? null;
+                    $createdAt = (is_numeric($regTime) && $regTime > 1000000000) 
+                        ? date('Y-m-d H:i:s', (int)$regTime) 
+                        : date('Y-m-d H:i:s');
 
-                $stmtUserCheck->execute([$tgId]);
-                $existingId = $stmtUserCheck->fetchColumn();
+                    $stmtUserCheck->execute([$tgId]);
+                    $existingId = $stmtUserCheck->fetchColumn();
 
-                if ($existingId) {
-                    $stmtUserUpdate->execute([
-                        'id' => $existingId,
-                        'username' => $username,
-                        'first_name' => $firstName,
-                        'balance' => $balance,
-                    ]);
-                    $userMap[$tgId] = (int)$existingId;
-                } else {
-                    $stmtUserInsert->execute([
-                        'telegram_id' => $tgId,
-                        'username' => $username,
-                        'first_name' => $firstName,
-                        'balance' => $balance,
-                        'created_at' => $createdAt,
-                    ]);
-                    $newId = (int)$targetPdo->lastInsertId();
-                    $userMap[$tgId] = $newId;
-                    $stats['users']++;
+                    if ($existingId) {
+                        $stmtUserUpdate->execute([
+                            'id' => $existingId,
+                            'username' => $username,
+                            'first_name' => $firstName,
+                            'balance' => $balance,
+                        ]);
+                        $userMap[$tgId] = (int)$existingId;
+                    } else {
+                        $stmtUserInsert->execute([
+                            'telegram_id' => $tgId,
+                            'username' => $username,
+                            'first_name' => $firstName,
+                            'balance' => $balance,
+                            'created_at' => $createdAt,
+                        ]);
+                        $newId = (int)$targetPdo->lastInsertId();
+                        $userMap[$tgId] = $newId;
+                        $stats['users']++;
+                    }
+                } catch (\Throwable $e) {
+                    error_log("User import skip: " . $e->getMessage());
                 }
             }
 
             // B. Import Panels
             $panelNameMap = []; // name_panel => local_panel_id
-            $stmtPanelCheck = $targetPdo->prepare("SELECT id FROM panels WHERE name = ?");
+            $stmtPanelCheck = $targetPdo->prepare("SELECT id FROM panels WHERE name = ?{$collate}");
             $stmtPanelInsert = $targetPdo->prepare("INSERT INTO panels (name, type, url, username, password, inbounds_json, is_active, custom_service_enabled, price_per_gb, price_per_day, min_gb, max_gb, min_days, max_days, categories_json) 
                 VALUES (:name, :type, :url, :username, :password, :inbounds_json, :is_active, :custom_service_enabled, :price_per_gb, :price_per_day, :min_gb, :max_gb, :min_days, :max_days, :categories_json)");
 
             foreach ($panels as $p) {
-                $name = trim($p['name_panel'] ?? ($p['name'] ?? ''));
-                if (empty($name)) {
-                    continue;
-                }
+                try {
+                    $name = trim($p['name_panel'] ?? ($p['name'] ?? ''));
+                    if (empty($name)) {
+                        continue;
+                    }
 
-                $type = strtolower(trim($p['type'] ?? 'sanaei'));
-                // Normalize panel type
-                if ($type === '3x-ui' || $type === 'x-ui_single' || $type === 'xui') $type = 'sanaei';
-                if ($type === 'rebeca') $type = 'rebka';
-                if ($type === 'manualsale') $type = 'manual';
-                if ($type === 'wg_mate') $type = 'wgmate';
+                    $type = strtolower(trim($p['type'] ?? 'sanaei'));
+                    // Normalize panel type
+                    if ($type === '3x-ui' || $type === 'x-ui_single' || $type === 'xui') $type = 'sanaei';
+                    if ($type === 'rebeca') $type = 'rebka';
+                    if ($type === 'manualsale') $type = 'manual';
+                    if ($type === 'wg_mate') $type = 'wgmate';
 
-                $url = rtrim($p['url_panel'] ?? ($p['url'] ?? ''), '/');
-                $username = $p['username_panel'] ?? ($p['username'] ?? '');
-                $password = $p['password_panel'] ?? ($p['password'] ?? '');
-                $isActive = (isset($p['status']) && strtolower($p['status']) === 'active') ? 1 : 1;
+                    $url = rtrim($p['url_panel'] ?? ($p['url'] ?? ''), '/');
+                    $username = $p['username_panel'] ?? ($p['username'] ?? '');
+                    $password = $p['password_panel'] ?? ($p['password'] ?? '');
+                    $isActive = (isset($p['status']) && strtolower($p['status']) === 'active') ? 1 : 1;
 
-                // Custom service configs
-                $customVolJson = $p['customvolume'] ?? '';
-                $customVol = is_string($customVolJson) ? json_decode($customVolJson, true) : null;
-                $customEnabled = (is_array($customVol) && !empty($customVol['f']) && $customVol['f'] != '0') ? 1 : 0;
+                    // Custom service configs
+                    $customVolJson = $p['customvolume'] ?? '';
+                    $customVol = is_string($customVolJson) ? json_decode($customVolJson, true) : null;
+                    $customEnabled = (is_array($customVol) && !empty($customVol['f']) && $customVol['f'] != '0') ? 1 : 0;
 
-                $priceGb = 4000;
-                $priceGbJson = $p['pricecustomvolume'] ?? '';
-                if ($priceGbJson) {
-                    $d = json_decode($priceGbJson, true);
-                    if (is_array($d) && !empty($d['f'])) $priceGb = (int)$d['f'];
-                }
+                    $priceGb = 4000;
+                    $priceGbJson = $p['pricecustomvolume'] ?? '';
+                    if ($priceGbJson) {
+                        $d = json_decode($priceGbJson, true);
+                        if (is_array($d) && !empty($d['f'])) $priceGb = (int)$d['f'];
+                    }
 
-                $priceDay = 1000;
-                $priceDayJson = $p['pricecustomtime'] ?? '';
-                if ($priceDayJson) {
-                    $d = json_decode($priceDayJson, true);
-                    if (is_array($d) && !empty($d['f'])) $priceDay = (int)$d['f'];
-                }
+                    $priceDay = 1000;
+                    $priceDayJson = $p['pricecustomtime'] ?? '';
+                    if ($priceDayJson) {
+                        $d = json_decode($priceDayJson, true);
+                        if (is_array($d) && !empty($d['f'])) $priceDay = (int)$d['f'];
+                    }
 
-                $minGb = 5;
-                $minGbJson = $p['mainvolume'] ?? '';
-                if ($minGbJson) {
-                    $d = json_decode($minGbJson, true);
-                    if (is_array($d) && !empty($d['f'])) $minGb = (int)$d['f'];
-                }
+                    $minGb = 5;
+                    $minGbJson = $p['mainvolume'] ?? '';
+                    if ($minGbJson) {
+                        $d = json_decode($minGbJson, true);
+                        if (is_array($d) && !empty($d['f'])) $minGb = (int)$d['f'];
+                    }
 
-                $maxGb = 500;
-                $maxGbJson = $p['maxvolume'] ?? '';
-                if ($maxGbJson) {
-                    $d = json_decode($maxGbJson, true);
-                    if (is_array($d) && !empty($d['f'])) $maxGb = (int)$d['f'];
-                }
+                    $maxGb = 500;
+                    $maxGbJson = $p['maxvolume'] ?? '';
+                    if ($maxGbJson) {
+                        $d = json_decode($maxGbJson, true);
+                        if (is_array($d) && !empty($d['f'])) $maxGb = (int)$d['f'];
+                    }
 
-                $minDays = 1;
-                $minDaysJson = $p['maintime'] ?? '';
-                if ($minDaysJson) {
-                    $d = json_decode($minDaysJson, true);
-                    if (is_array($d) && !empty($d['f'])) $minDays = (int)$d['f'];
-                }
+                    $minDays = 1;
+                    $minDaysJson = $p['maintime'] ?? '';
+                    if ($minDaysJson) {
+                        $d = json_decode($minDaysJson, true);
+                        if (is_array($d) && !empty($d['f'])) $minDays = (int)$d['f'];
+                    }
 
-                $maxDays = 365;
-                $maxDaysJson = $p['maxtime'] ?? '';
-                if ($maxDaysJson) {
-                    $d = json_decode($maxDaysJson, true);
-                    if (is_array($d) && !empty($d['f'])) $maxDays = (int)$d['f'];
-                }
+                    $maxDays = 365;
+                    $maxDaysJson = $p['maxtime'] ?? '';
+                    if ($maxDaysJson) {
+                        $d = json_decode($maxDaysJson, true);
+                        if (is_array($d) && !empty($d['f'])) $maxDays = (int)$d['f'];
+                    }
 
-                $inboundId = $p['inboundid'] ?? '1';
-                $inboundsJson = is_numeric($inboundId) ? json_encode([(int)$inboundId]) : (is_string($inboundId) && str_starts_with($inboundId, '[') ? $inboundId : json_encode([$inboundId]));
+                    $inboundId = $p['inboundid'] ?? '1';
+                    $inboundsJson = is_numeric($inboundId) ? json_encode([(int)$inboundId]) : (is_string($inboundId) && str_starts_with($inboundId, '[') ? $inboundId : json_encode([$inboundId]));
 
-                $stmtPanelCheck->execute([$name]);
-                $existingPanelId = $stmtPanelCheck->fetchColumn();
+                    $stmtPanelCheck->execute([$name]);
+                    $existingPanelId = $stmtPanelCheck->fetchColumn();
 
-                if ($existingPanelId) {
-                    $panelNameMap[$name] = (int)$existingPanelId;
-                } else {
-                    $stmtPanelInsert->execute([
-                        'name' => $name,
-                        'type' => $type,
-                        'url' => $url,
-                        'username' => $username,
-                        'password' => $password,
-                        'inbounds_json' => $inboundsJson,
-                        'is_active' => $isActive,
-                        'custom_service_enabled' => $customEnabled,
-                        'price_per_gb' => $priceGb,
-                        'price_per_day' => $priceDay,
-                        'min_gb' => $minGb,
-                        'max_gb' => $maxGb,
-                        'min_days' => $minDays,
-                        'max_days' => $maxDays,
-                        'categories_json' => '["یک ماهه", "دو ماهه", "سه ماهه", "نامحدود"]',
-                    ]);
-                    $newPanelId = (int)$targetPdo->lastInsertId();
-                    $panelNameMap[$name] = $newPanelId;
-                    $stats['panels']++;
+                    if ($existingPanelId) {
+                        $panelNameMap[$name] = (int)$existingPanelId;
+                    } else {
+                        $stmtPanelInsert->execute([
+                            'name' => $name,
+                            'type' => $type,
+                            'url' => $url,
+                            'username' => $username,
+                            'password' => $password,
+                            'inbounds_json' => $inboundsJson,
+                            'is_active' => $isActive,
+                            'custom_service_enabled' => $customEnabled,
+                            'price_per_gb' => $priceGb,
+                            'price_per_day' => $priceDay,
+                            'min_gb' => $minGb,
+                            'max_gb' => $maxGb,
+                            'min_days' => $minDays,
+                            'max_days' => $maxDays,
+                            'categories_json' => '["یک ماهه", "دو ماهه", "سه ماهه", "نامحدود"]',
+                        ]);
+                        $newPanelId = (int)$targetPdo->lastInsertId();
+                        $panelNameMap[$name] = $newPanelId;
+                        $stats['panels']++;
+                    }
+                } catch (\Throwable $e) {
+                    error_log("Panel import skip: " . $e->getMessage());
                 }
             }
 
             // C. Import Products / Plans
-            $stmtPlanCheck = $targetPdo->prepare("SELECT id FROM plans WHERE name = ?");
+            $stmtPlanCheck = $targetPdo->prepare("SELECT id FROM plans WHERE name = ?{$collate}");
             $stmtPlanInsert = $targetPdo->prepare("INSERT INTO plans (name, description, category, price, traffic_gb, days, ip_limit, panel_id, is_active, sort_order) 
                 VALUES (:name, :description, :category, :price, :traffic_gb, :days, 1, :panel_id, 1, :sort_order)");
 
             foreach ($products as $idx => $prod) {
-                $name = trim($prod['name_product'] ?? ($prod['name'] ?? ''));
-                if (empty($name)) continue;
+                try {
+                    $name = trim($prod['name_product'] ?? ($prod['name'] ?? ''));
+                    if (empty($name)) continue;
 
-                $price = (int)($prod['price_product'] ?? ($prod['price'] ?? 0));
-                $vol = (int)($prod['Volume'] ?? ($prod['volume'] ?? 0));
-                $days = (int)($prod['Service_time'] ?? ($prod['days'] ?? 30));
-                $cat = trim($prod['category'] ?? 'یک ماهه') ?: 'یک ماهه';
+                    $price = (int)($prod['price_product'] ?? ($prod['price'] ?? 0));
+                    $vol = (int)($prod['Volume'] ?? ($prod['volume'] ?? 0));
+                    $days = (int)($prod['Service_time'] ?? ($prod['days'] ?? 30));
+                    $cat = trim($prod['category'] ?? 'یک ماهه') ?: 'یک ماهه';
 
-                $stmtPlanCheck->execute([$name]);
-                if (!$stmtPlanCheck->fetchColumn()) {
-                    $stmtPlanInsert->execute([
-                        'name' => $name,
-                        'description' => "پلن وارد شده از میرزابوت ({$vol} گیگابایت - {$days} روز)",
-                        'category' => $cat,
-                        'price' => $price,
-                        'traffic_gb' => $vol,
-                        'days' => $days,
-                        'panel_id' => 0, // Auto balance
-                        'sort_order' => $idx + 1,
-                    ]);
-                    $stats['plans']++;
+                    $stmtPlanCheck->execute([$name]);
+                    if (!$stmtPlanCheck->fetchColumn()) {
+                        $stmtPlanInsert->execute([
+                            'name' => $name,
+                            'description' => "پلن وارد شده از میرزابوت ({$vol} گیگابایت - {$days} روز)",
+                            'category' => $cat,
+                            'price' => $price,
+                            'traffic_gb' => $vol,
+                            'days' => $days,
+                            'panel_id' => 0, // Auto balance
+                            'sort_order' => $idx + 1,
+                        ]);
+                        $stats['plans']++;
+                    }
+                } catch (\Throwable $e) {
+                    error_log("Plan import skip: " . $e->getMessage());
                 }
             }
 
             // D. Import Invoices (Services) & Enable Live Inquiry
-            $stmtServiceCheck = $targetPdo->prepare("SELECT id FROM services WHERE client_email = ? OR client_uuid = ?");
+            $stmtServiceCheck = $targetPdo->prepare("SELECT id FROM services WHERE client_email = ?{$collate} OR client_uuid = ?{$collate}");
             $stmtServiceInsert = $targetPdo->prepare("INSERT INTO services (order_id, user_id, panel_id, client_uuid, client_email, inbound_id, subscription_url, config_link, wireguard_conf, traffic_gb, days, ip_limit, used_traffic_bytes, expires_at, is_active, created_at) 
                 VALUES (NULL, :user_id, :panel_id, :client_uuid, :client_email, 0, :subscription_url, :config_link, :wireguard_conf, :traffic_gb, :days, 1, 0, :expires_at, :is_active, :created_at)");
 
@@ -238,86 +270,91 @@ class MigrationService
             $defaultPanelId = !empty($panelNameMap) ? reset($panelNameMap) : 1;
 
             foreach ($invoices as $inv) {
-                $tgUserId = (string)($inv['id_user'] ?? '');
-                $userId = $userMap[$tgUserId] ?? null;
+                try {
+                    $tgUserId = (string)($inv['id_user'] ?? '');
+                    $userId = $userMap[$tgUserId] ?? null;
 
-                if (!$userId) {
-                    // Create minimal user placeholder if not exists
-                    if (!empty($tgUserId) && is_numeric($tgUserId)) {
-                        $targetPdo->prepare("INSERT INTO users (telegram_id, username, first_name, balance, step, created_at) VALUES (?, NULL, 'کاربر میرزا', 0, 'idle', datetime('now'))")->execute([$tgUserId]);
-                        $userId = (int)$targetPdo->lastInsertId();
-                        $userMap[$tgUserId] = $userId;
-                    } else {
-                        continue;
-                    }
-                }
-
-                $configUsername = trim($inv['username'] ?? '');
-                if (empty($configUsername)) {
-                    continue;
-                }
-
-                $loc = trim($inv['Service_location'] ?? '');
-                $panelId = $panelNameMap[$loc] ?? $defaultPanelId;
-
-                $vol = (int)($inv['Volume'] ?? 0);
-                $days = (int)($inv['Service_time'] ?? 30);
-                $uuid = $inv['uuid'] ?? $configUsername;
-                $statusStr = strtolower($inv['Status'] ?? 'active');
-                $isActive = ($statusStr === 'active' || $statusStr === '0' || $statusStr === '') ? 1 : 0;
-
-                // Parse user_info json if available
-                $subUrl = '';
-                $configLink = '';
-                $wireguardConf = null;
-
-                $userInfoStr = $inv['user_info'] ?? '';
-                if ($userInfoStr) {
-                    $uInfo = json_decode($userInfoStr, true);
-                    if (is_array($uInfo)) {
-                        $subUrl = $uInfo['subscription_url'] ?? '';
-                        if (!empty($uInfo['configs']) && is_array($uInfo['configs'])) {
-                            $configLink = $uInfo['configs'][0] ?? '';
+                    if (!$userId) {
+                        // Create minimal user placeholder if not exists
+                        if (!empty($tgUserId) && is_numeric($tgUserId)) {
+                            $targetPdo->prepare("INSERT INTO users (telegram_id, username, first_name, balance, step, created_at) VALUES (?, NULL, 'کاربر میرزا', 0, 'idle', ?)")
+                                ->execute([$tgUserId, date('Y-m-d H:i:s')]);
+                            $userId = (int)$targetPdo->lastInsertId();
+                            $userMap[$tgUserId] = $userId;
+                        } else {
+                            continue;
                         }
                     }
-                }
 
-                if (empty($subUrl) && str_starts_with($uuid, 'http')) {
-                    $subUrl = $uuid;
-                }
-                if (empty($configLink) && (str_starts_with($uuid, 'vmess://') || str_starts_with($uuid, 'vless://') || str_starts_with($uuid, 'trojan://') || str_starts_with($uuid, 'ss://'))) {
-                    $configLink = $uuid;
-                }
+                    $configUsername = trim($inv['username'] ?? '');
+                    if (empty($configUsername)) {
+                        continue;
+                    }
 
-                // WireGuard conf detection
-                if (WireGuardHelper::isWireGuard($configLink)) {
-                    $wireguardConf = WireGuardHelper::toConf($configLink, $configUsername);
-                }
+                    $loc = trim($inv['Service_location'] ?? '');
+                    $panelId = $panelNameMap[$loc] ?? $defaultPanelId;
 
-                // Expiration time calculation
-                $timeSell = $inv['time_sell'] ?? null;
-                $createdTs = (is_numeric($timeSell) && $timeSell > 1000000000) ? (int)$timeSell : time();
-                $createdAt = date('Y-m-d H:i:s', $createdTs);
-                $expiresAt = ($days > 0) ? date('Y-m-d H:i:s', $createdTs + ($days * 86400)) : null;
+                    $vol = (int)($inv['Volume'] ?? 0);
+                    $days = (int)($inv['Service_time'] ?? 30);
+                    $uuid = $inv['uuid'] ?? $configUsername;
+                    $statusStr = strtolower($inv['Status'] ?? 'active');
+                    $isActive = ($statusStr === 'active' || $statusStr === '0' || $statusStr === '') ? 1 : 0;
 
-                // Check for duplicate service
-                $stmtServiceCheck->execute([$configUsername, $configUsername]);
-                if (!$stmtServiceCheck->fetchColumn()) {
-                    $stmtServiceInsert->execute([
-                        'user_id' => $userId,
-                        'panel_id' => $panelId,
-                        'client_uuid' => $uuid,
-                        'client_email' => $configUsername,
-                        'subscription_url' => $subUrl,
-                        'config_link' => $configLink,
-                        'wireguard_conf' => $wireguardConf,
-                        'traffic_gb' => $vol,
-                        'days' => $days,
-                        'expires_at' => $expiresAt,
-                        'is_active' => $isActive,
-                        'created_at' => $createdAt,
-                    ]);
-                    $stats['services']++;
+                    // Parse user_info json if available
+                    $subUrl = '';
+                    $configLink = '';
+                    $wireguardConf = null;
+
+                    $userInfoStr = $inv['user_info'] ?? '';
+                    if ($userInfoStr) {
+                        $uInfo = json_decode($userInfoStr, true);
+                        if (is_array($uInfo)) {
+                            $subUrl = $uInfo['subscription_url'] ?? '';
+                            if (!empty($uInfo['configs']) && is_array($uInfo['configs'])) {
+                                $configLink = $uInfo['configs'][0] ?? '';
+                            }
+                        }
+                    }
+
+                    if (empty($subUrl) && str_starts_with($uuid, 'http')) {
+                        $subUrl = $uuid;
+                    }
+                    if (empty($configLink) && (str_starts_with($uuid, 'vmess://') || str_starts_with($uuid, 'vless://') || str_starts_with($uuid, 'trojan://') || str_starts_with($uuid, 'ss://'))) {
+                        $configLink = $uuid;
+                    }
+
+                    // WireGuard conf detection
+                    if (WireGuardHelper::isWireGuard($configLink)) {
+                        $wireguardConf = WireGuardHelper::toConf($configLink, $configUsername);
+                    }
+
+                    // Expiration time calculation
+                    $timeSell = $inv['time_sell'] ?? null;
+                    $createdTs = (is_numeric($timeSell) && $timeSell > 1000000000) ? (int)$timeSell : time();
+                    $createdAt = date('Y-m-d H:i:s', $createdTs);
+                    $expiresAt = ($days > 0) ? date('Y-m-d H:i:s', $createdTs + ($days * 86400)) : null;
+
+                    // Check for duplicate service
+                    $stmtServiceCheck->execute([$configUsername, $configUsername]);
+                    if (!$stmtServiceCheck->fetchColumn()) {
+                        $stmtServiceInsert->execute([
+                            'user_id' => $userId,
+                            'panel_id' => $panelId,
+                            'client_uuid' => $uuid,
+                            'client_email' => $configUsername,
+                            'subscription_url' => $subUrl,
+                            'config_link' => $configLink,
+                            'wireguard_conf' => $wireguardConf,
+                            'traffic_gb' => $vol,
+                            'days' => $days,
+                            'expires_at' => $expiresAt,
+                            'is_active' => $isActive,
+                            'created_at' => $createdAt,
+                        ]);
+                        $stats['services']++;
+                    }
+                } catch (\Throwable $e) {
+                    error_log("Invoice import skip: " . $e->getMessage());
                 }
             }
 

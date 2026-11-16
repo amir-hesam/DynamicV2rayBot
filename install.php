@@ -128,8 +128,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sql = file_get_contents($schemaFile);
 
             if ($dbDriver === 'mysql') {
-                $pdo->exec("SET NAMES utf8mb4");
-                $pdo->exec("SET SQL_MODE=''");
+                try {
+                    $pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;");
+                    $pdo->exec("SET CHARACTER SET utf8mb4;");
+                    $pdo->exec("SET collation_connection = 'utf8mb4_unicode_ci';");
+                    $pdo->exec("SET SQL_MODE='';");
+                    $pdo->exec("ALTER DATABASE `{$mysqlDatabase}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;");
+                } catch (\Throwable $e) {}
 
                 // Adapt SQLite syntax to MySQL
                 $sql = str_replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'INT PRIMARY KEY AUTO_INCREMENT', $sql);
@@ -156,6 +161,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     }
                 }
+            }
+
+            // Ensure all tables and columns are converted to utf8mb4_unicode_ci
+            if ($dbDriver === 'mysql') {
+                $tables = ['settings', 'panels', 'plans', 'bank_cards', 'users', 'orders', 'services', 'admins', 'bot_buttons'];
+                foreach ($tables as $t) {
+                    try {
+                        $pdo->exec("ALTER TABLE `{$t}` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+                    } catch (\Throwable $e) {}
+                }
+            }
+
+            // Run column migrations in case tables already existed
+            $migrations = [
+                "ALTER TABLE services ADD COLUMN wireguard_conf TEXT",
+                "ALTER TABLE panels ADD COLUMN custom_service_enabled INTEGER DEFAULT 0",
+                "ALTER TABLE panels ADD COLUMN price_per_gb INTEGER DEFAULT 4000",
+                "ALTER TABLE panels ADD COLUMN price_per_day INTEGER DEFAULT 1000",
+                "ALTER TABLE panels ADD COLUMN min_gb INTEGER DEFAULT 5",
+                "ALTER TABLE panels ADD COLUMN max_gb INTEGER DEFAULT 500",
+                "ALTER TABLE panels ADD COLUMN min_days INTEGER DEFAULT 1",
+                "ALTER TABLE panels ADD COLUMN max_days INTEGER DEFAULT 365",
+                "ALTER TABLE panels ADD COLUMN categories_json TEXT",
+                "ALTER TABLE plans ADD COLUMN category VARCHAR(100)",
+            ];
+            foreach ($migrations as $mSql) {
+                try {
+                    $pdo->exec($mSql);
+                } catch (\Throwable $e) {}
             }
 
             // 3. Seed Settings
