@@ -10,11 +10,15 @@ class Keyboard
     /**
      * Main Menu Reply Keyboard built dynamically from database button layout & positions
      */
-    public static function mainMenu(): array
+    public static function mainMenu(bool $isAdmin = false): array
     {
         $miniAppUrl = Setting::get('miniapp_url');
         $grid = BotButton::getActiveGrid();
         $keyboard = [];
+
+        if ($isAdmin) {
+            $keyboard[] = [['text' => '🛠 پنل مدیریت و آمار']];
+        }
 
         foreach ($grid as $rowNum => $buttonsInRow) {
             $row = [];
@@ -43,6 +47,9 @@ class Keyboard
                 [['text' => '📋 تعرفه و پلن‌ها'], ['text' => '💳 کارت به کارت و شارژ']],
                 [['text' => '📖 راهنمای اتصال'], ['text' => '📞 پشتیبانی تلگرام']]
             ];
+            if ($isAdmin) {
+                array_unshift($keyboard, [['text' => '🛠 پنل مدیریت و آمار']]);
+            }
         }
 
         return [
@@ -60,7 +67,10 @@ class Keyboard
         $inline = [];
         foreach ($plans as $plan) {
             $priceFormatted = number_format($plan['price']) . ' تومان';
-            $limitText = ($plan['ip_limit'] > 0) ? " ({$plan['ip_limit']} کاربر)" : " (نامحدود)";
+            $limitParts = [];
+            if ($plan['ip_limit'] > 0) $limitParts[] = "{$plan['ip_limit']} IP";
+            if (!empty($plan['hwid_limit']) && $plan['hwid_limit'] > 0) $limitParts[] = "{$plan['hwid_limit']} HWID";
+            $limitText = !empty($limitParts) ? ' (' . implode(' | ', $limitParts) . ')' : ' (نامحدود)';
             $text = "{$plan['name']} | {$plan['traffic_gb']} گیگ{$limitText} - {$priceFormatted}";
             $inline[] = [
                 ['text' => $text, 'callback_data' => 'buy_plan_' . $plan['id']]
@@ -77,17 +87,36 @@ class Keyboard
     /**
      * Plan Checkout Confirmation Keyboard
      */
-    public static function planCheckoutKeyboard(int $planId): array
+    public static function planCheckoutKeyboard(int $planId, bool $isAdmin = false, int $userBalance = 0, int $planPrice = 0): array
     {
+        $buttons = [];
+
+        // 1. Admin Instant Test Purchase
+        if ($isAdmin) {
+            $buttons[] = [
+                ['text' => '⚡ تحویل آنی ویژه مدیر (تست و فعالسازی فوری)', 'callback_data' => 'admin_test_buy_' . $planId]
+            ];
+        }
+
+        // 2. Pay via Wallet if sufficient balance
+        if ($userBalance >= $planPrice && $planPrice > 0) {
+            $buttons[] = [
+                ['text' => '💰 پرداخت آنی از کیف پول (' . number_format($userBalance) . ' ت موجودی)', 'callback_data' => 'pay_wallet_' . $planId]
+            ];
+        }
+
+        // 3. Pay via Card to Card
+        $buttons[] = [
+            ['text' => '💳 پرداخت کارت به کارت (ارسال فیش)', 'callback_data' => 'pay_card_' . $planId]
+        ];
+
+        // 4. Cancel
+        $buttons[] = [
+            ['text' => '❌ انصراف و بازگشت', 'callback_data' => 'cancel_order']
+        ];
+
         return [
-            'inline_keyboard' => [
-                [
-                    ['text' => '💳 پرداخت کارت به کارت', 'callback_data' => 'pay_card_' . $planId],
-                ],
-                [
-                    ['text' => '❌ انصراف و بازگشت', 'callback_data' => 'cancel_order']
-                ]
-            ]
+            'inline_keyboard' => $buttons
         ];
     }
 

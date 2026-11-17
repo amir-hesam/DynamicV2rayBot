@@ -123,6 +123,8 @@ class Database
             "ALTER TABLE plans ADD COLUMN hwid_limit INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE services ADD COLUMN ip_limit INTEGER NOT NULL DEFAULT 1",
             "ALTER TABLE services ADD COLUMN hwid_limit INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE admins ADD COLUMN telegram_id BIGINT DEFAULT NULL",
         ];
 
         foreach ($migrations as $mSql) {

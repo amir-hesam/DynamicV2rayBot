@@ -220,7 +220,7 @@
                             </div>
                         </div>
                     </div>
-                    <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[11px] font-semibold">
+                    <span id="profile-role-badge" class="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[11px] font-semibold">
                         عضو عادی
                     </span>
                 </div>
@@ -589,6 +589,9 @@
                         <span>💳 کارت به کارت</span>
                         <span class="text-[10px] font-normal opacity-80">ارسال تصویر فیش</span>
                     </button>
+                    <button type="button" onclick="setCheckoutPaymentMethod('admin_test')" id="btn-pay-method-admin" class="col-span-2 p-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 text-amber-500 text-xs font-bold items-center justify-center gap-1.5 hidden">
+                        <span>👑 خرید تستی مدیر (تحویل فوری بدون کسر موجودی)</span>
+                    </button>
                 </div>
             </div>
 
@@ -808,17 +811,33 @@
                     appData = data;
                     currentUser = data.user;
 
-                    // Header Info
+                    // Header & User Info
+                    const isAdmin = currentUser?.is_admin || appData.is_admin;
+
                     if (currentUser) {
-                        document.getElementById('header-user-text').innerText = (currentUser.first_name || 'کاربر') + ' خوش آمدید';
+                        document.getElementById('header-user-text').innerText = (isAdmin ? '👑 مدیر گرامی ' : '') + (currentUser.first_name || 'کاربر') + ' خوش آمدید';
                         document.getElementById('header-balance').innerText = Number(currentUser.balance).toLocaleString();
-                        document.getElementById('profile-name').innerText = currentUser.first_name || 'کاربر گرامی';
-                        document.getElementById('profile-username').innerText = currentUser.username ? ('@' + currentUser.username) : '@user';
+                        document.getElementById('profile-name').innerText = currentUser.first_name || (isAdmin ? 'مدیر ارشد' : 'کاربر گرامی');
+                        document.getElementById('profile-username').innerText = currentUser.username ? ('@' + currentUser.username) : (isAdmin ? '@admin' : '@user');
                         document.getElementById('profile-tgid').innerText = 'ID: ' + currentUser.telegram_id;
                         document.getElementById('profile-balance').innerText = Number(currentUser.balance).toLocaleString();
                         document.getElementById('wallet-balance-val').innerText = Number(currentUser.balance).toLocaleString();
                         document.getElementById('checkout-wallet-balance-note').innerText = 'موجودی: ' + Number(currentUser.balance).toLocaleString() + ' تومان';
                         
+                        const roleBadge = document.getElementById('profile-role-badge');
+                        if (roleBadge) {
+                            if (isAdmin) {
+                                roleBadge.className = 'px-3 py-1 rounded-full bg-amber-500/15 text-amber-500 border border-amber-500/30 text-[11px] font-bold flex items-center gap-1 shadow-sm';
+                                roleBadge.innerHTML = '👑 مدیر کل';
+                            } else if (Number(currentUser.balance) > 0) {
+                                roleBadge.className = 'px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 text-[11px] font-semibold';
+                                roleBadge.innerHTML = '⭐ عضو ویژه';
+                            } else {
+                                roleBadge.className = 'px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[11px] font-semibold';
+                                roleBadge.innerHTML = 'عضو عادی';
+                            }
+                        }
+
                         if (currentUser.created_at) {
                             document.getElementById('profile-joined').innerText = currentUser.created_at.split(' ')[0];
                         }
@@ -827,6 +846,16 @@
                         document.getElementById('profile-name').innerText = tgUser.first_name || 'کاربر گرامی';
                         document.getElementById('profile-username').innerText = tgUser.username ? ('@' + tgUser.username) : '@user';
                         document.getElementById('profile-tgid').innerText = 'ID: ' + tgUser.id;
+                    } else if (appData.admin_telegram_id) {
+                        document.getElementById('header-user-text').innerText = 'حالت پیش‌نمایش مدیر';
+                        document.getElementById('profile-name').innerText = 'مدیر سیستم';
+                        document.getElementById('profile-username').innerText = '@admin';
+                        document.getElementById('profile-tgid').innerText = 'ID: ' + appData.admin_telegram_id;
+                        const roleBadge = document.getElementById('profile-role-badge');
+                        if (roleBadge) {
+                            roleBadge.className = 'px-3 py-1 rounded-full bg-amber-500/15 text-amber-500 border border-amber-500/30 text-[11px] font-bold flex items-center gap-1 shadow-sm';
+                            roleBadge.innerHTML = '👑 مدیر کل (پیش‌نمایش)';
+                        }
                     }
 
                     // Active Services count
@@ -1268,7 +1297,19 @@
                 document.getElementById('checkout-price').innerText = Number(plan.price).toLocaleString();
             }
 
-            setCheckoutPaymentMethod('wallet');
+            const isAdmin = currentUser?.is_admin || appData.is_admin;
+            const btnAdmin = document.getElementById('btn-pay-method-admin');
+            if (btnAdmin) {
+                if (isAdmin) {
+                    btnAdmin.classList.remove('hidden');
+                    btnAdmin.classList.add('flex');
+                } else {
+                    btnAdmin.classList.add('hidden');
+                    btnAdmin.classList.remove('flex');
+                }
+            }
+
+            setCheckoutPaymentMethod(isAdmin ? 'admin_test' : 'wallet');
             document.getElementById('checkoutModal').classList.remove('hidden');
             document.getElementById('checkoutModal').classList.add('flex');
         }
@@ -1283,16 +1324,29 @@
             checkoutPayMethod = method;
             const btnWallet = document.getElementById('btn-pay-method-wallet');
             const btnCard = document.getElementById('btn-pay-method-card');
+            const btnAdmin = document.getElementById('btn-pay-method-admin');
             const extra = document.getElementById('checkout-card-extra');
+            const btnConfirm = document.getElementById('btn-confirm-checkout');
 
-            if (method === 'wallet') {
-                btnWallet.className = 'p-3 rounded-2xl border-2 border-brand-500 bg-brand-500/10 text-brand-500 text-xs font-bold flex flex-col items-center gap-1';
-                btnCard.className = 'p-3 rounded-2xl border border-slate-200 dark:border-slate-800 text-muted text-xs font-medium flex flex-col items-center gap-1';
+            // Reset base styles
+            btnWallet.className = 'p-3 rounded-2xl border border-slate-200 dark:border-slate-800 text-muted text-xs font-medium flex flex-col items-center gap-1';
+            btnCard.className = 'p-3 rounded-2xl border border-slate-200 dark:border-slate-800 text-muted text-xs font-medium flex flex-col items-center gap-1';
+            if (btnAdmin) {
+                btnAdmin.className = 'col-span-2 p-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 text-amber-500 text-xs font-bold flex items-center justify-center gap-1.5';
+            }
+
+            if (method === 'admin_test' && btnAdmin) {
+                btnAdmin.className = 'col-span-2 p-3 rounded-2xl border-2 border-amber-500 bg-amber-500/20 text-amber-500 text-xs font-bold flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/10';
                 extra.classList.add('hidden');
+                btnConfirm.innerText = '⚡ تایید و صدور فوری کانفیگ تست روی سرور';
+            } else if (method === 'wallet') {
+                btnWallet.className = 'p-3 rounded-2xl border-2 border-brand-500 bg-brand-500/10 text-brand-500 text-xs font-bold flex flex-col items-center gap-1';
+                extra.classList.add('hidden');
+                btnConfirm.innerText = 'تایید و پرداخت از کیف پول';
             } else {
                 btnCard.className = 'p-3 rounded-2xl border-2 border-brand-500 bg-brand-500/10 text-brand-500 text-xs font-bold flex flex-col items-center gap-1';
-                btnWallet.className = 'p-3 rounded-2xl border border-slate-200 dark:border-slate-800 text-muted text-xs font-medium flex flex-col items-center gap-1';
                 extra.classList.remove('hidden');
+                btnConfirm.innerText = 'ثبت فیش و ارسال به مدیریت';
             }
         }
 
@@ -1303,7 +1357,7 @@
             btn.innerText = 'در حال پردازش سفارش...';
 
             let tgUser = tg?.initDataUnsafe?.user;
-            let tgId = currentUser?.telegram_id || tgUser?.id;
+            let tgId = currentUser?.telegram_id || tgUser?.id || appData?.admin_telegram_id || '';
 
             if (!tgId) {
                 showToast('شناسه تلگرام یافت نشد. لطفاً از طریق ربات باز کنید.', 'error');

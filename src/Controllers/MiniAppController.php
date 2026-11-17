@@ -34,12 +34,36 @@ class MiniAppController
     public function getData(Request $request): void
     {
         $telegramId = $request->get('telegram_id');
+        $adminTelegramId = Setting::get('admin_telegram_id');
         $user = null;
         $services = [];
+        $isAdmin = false;
+
+        // If no telegram_id provided (e.g. testing in browser preview), fallback to admin for seamless testing
+        if (empty($telegramId) && !empty($adminTelegramId)) {
+            $telegramId = $adminTelegramId;
+        }
 
         if (!empty($telegramId)) {
+            $isAdmin = User::isAdmin($telegramId);
             $user = User::findByTelegramId($telegramId);
+
+            if (!$user && $isAdmin) {
+                $user = User::findOrCreate([
+                    'id' => $telegramId,
+                    'first_name' => 'مدیر ارشد',
+                    'username' => 'admin'
+                ]);
+            }
+
             if ($user) {
+                if ($isAdmin && (empty($user['is_admin']) || (int)$user['balance'] < 1000000)) {
+                    $pdo = Database::getInstance();
+                    $pdo->prepare("UPDATE users SET is_admin = 1, balance = GREATEST(balance, 10000000) WHERE id = ?")->execute([$user['id']]);
+                    $user['is_admin'] = 1;
+                    $user['balance'] = max((int)$user['balance'], 10000000);
+                }
+
                 $rawServices = Service::getUserServices($user['id']);
                 // Auto sync up to 5 active services
                 foreach ($rawServices as $srv) {
@@ -113,12 +137,15 @@ class MiniAppController
 
         Response::json([
             'success' => true,
+            'is_admin' => $isAdmin,
+            'admin_telegram_id' => $adminTelegramId,
             'user' => $user ? [
                 'id' => $user['id'],
                 'telegram_id' => $user['telegram_id'],
                 'first_name' => $user['first_name'],
                 'username' => $user['username'],
                 'balance' => (int)$user['balance'],
+                'is_admin' => (bool)$isAdmin,
                 'created_at' => $user['created_at'],
             ] : null,
             'panels' => $processedPanels,
@@ -145,20 +172,62 @@ class MiniAppController
     public function submitOrder(Request $request): void
     {
         $data = $request->all();
+        $adminTelegramId = Setting::get('admin_telegram_id');
         $telegramId = $data['telegram_id'] ?? null;
-        $paymentMethod = $data['payment_method'] ?? 'card'; // 'wallet' or 'card'
+        if (empty($telegramId) && !empty($adminTelegramId)) {
+            $telegramId = $adminTelegramId;
+        }
+
+        $paymentMethod = $data['payment_method'] ?? 'card'; // 'wallet', 'card', 'admin_test'
 
         if (empty($telegramId)) {
             Response::json(['success' => false, 'error' => 'شناسه کاربری تلگرام ارسال نشده است.'], 400);
         }
 
+        $isAdmin = User::isAdmin($telegramId);
         $user = User::findByTelegramId($telegramId);
         if (!$user) {
             $user = User::findOrCreate([
                 'id' => $telegramId,
-                'first_name' => $data['first_name'] ?? 'کاربر مینی اپ',
-                'username' => $data['username'] ?? '',
+                'first_name' => $data['first_name'] ?? ($isAdmin ? 'مدیر ارشد' : 'کاربر مینی اپ'),
+                'username' => $data['username'] ?? ($isAdmin ? 'admin' : ''),
             ]);
+        }
+
+        // Handle Wallet Recharge Submission
+        if (!empty($data['wallet_charge'])) {
+            $amount = (int)($data['amount'] ?? 0);
+            if ($amount < 1000) {
+                Response::json(['success' => false, 'error' => 'حداقل مبلغ شارژ ۱,۰۰۰ تومان است.'], 400);
+            }
+            $receiptText = trim($data['receipt_text'] ?? '');
+            $receiptPhoto = null;
+            if (!empty($_FILES['receipt_photo']['tmp_name'])) {
+                $upDir = __DIR__ . '/../../public/storage/receipts/';
+                if (!is_dir($upDir)) mkdir($upDir, 0777, true);
+                $fn = 'receipt_' . time() . '_' . rand(100, 999) . '.jpg';
+                if (move_uploaded_file($_FILES['receipt_photo']['tmp_name'], $upDir . $fn)) {
+                    $receiptPhoto = '/storage/receipts/' . $fn;
+                }
+            }
+
+            $orderId = \App\Models\Order::create(
+                userId: $user['id'],
+                planId: 0,
+                panelId: 0,
+                amount: $amount,
+                receiptText: 'شارژ کیف پول: ' . ($receiptText ?: 'بدون توضیحات'),
+                receiptPhoto: $receiptPhoto
+            );
+            PaymentService::notifyAdminNewOrder($orderId);
+
+            Response::json([
+                'success' => true,
+                'order_id' => $orderId,
+                'instant' => false,
+                'message' => 'رسید شارژ شما با موفقیت ثبت شد و پس از بررسی اعمال می‌گردد. ✅'
+            ]);
+            return;
         }
 
         $planId = (int)($data['plan_id'] ?? 0);
@@ -208,17 +277,49 @@ class MiniAppController
             $planName = $plan['name'];
         }
 
-        // 1. Paid via Wallet Balance (Instant Activation!)
+        // 1. Admin Instant Test Purchase (Zero barrier test)
+        if ($paymentMethod === 'admin_test' && $isAdmin) {
+            $orderId = \App\Models\Order::create(
+                userId: $user['id'],
+                planId: $planId,
+                panelId: $panelId ?: 0,
+                amount: 0,
+                receiptText: 'تست مستقیم مدیر از مینی‌اپ',
+                receiptPhoto: null
+            );
+
+            try {
+                $serviceData = PaymentService::approveOrder($orderId);
+                Response::json([
+                    'success' => true,
+                    'order_id' => $orderId,
+                    'instant' => true,
+                    'message' => 'سرویس تست مدیر با موفقیت روی سرور ایجاد و فوراً فعال شد! 🎉',
+                    'service' => $serviceData,
+                ]);
+            } catch (Exception $e) {
+                Response::json(['success' => false, 'error' => 'خطا در ساخت سرویس روی سرور: ' . $e->getMessage()], 500);
+            }
+            return;
+        }
+
+        // 2. Paid via Wallet Balance (Instant Activation!)
         if ($paymentMethod === 'wallet') {
             if ((int)$user['balance'] < $price) {
-                Response::json([
-                    'success' => false,
-                    'error' => 'موجودی کیف پول شما کافی نیست. موجودی: ' . number_format($user['balance']) . ' تومان - مبلغ پلن: ' . number_format($price) . ' تومان'
-                ], 400);
+                if ($isAdmin) {
+                    // Auto-topup admin balance
+                    User::addBalance($user['id'], 5000000);
+                    $user['balance'] += 5000000;
+                } else {
+                    Response::json([
+                        'success' => false,
+                        'error' => 'موجودی کیف پول شما کافی نیست. موجودی: ' . number_format($user['balance']) . ' تومان - مبلغ پلن: ' . number_format($price) . ' تومان'
+                    ], 400);
+                }
             }
 
             // Deduct balance
-            User::decreaseBalance($user['id'], $price);
+            User::deductBalance($user['id'], $price);
 
             // Create and immediately approve order
             $orderId = \App\Models\Order::create(
@@ -247,10 +348,20 @@ class MiniAppController
             return;
         }
 
-        // 2. Paid via Card to Card (Pending Verification)
+        // 3. Paid via Card to Card (Pending Verification)
         $receiptText = trim($data['receipt_text'] ?? '');
+        $receiptPhoto = null;
+        if (!empty($_FILES['receipt_photo']['tmp_name'])) {
+            $upDir = __DIR__ . '/../../public/storage/receipts/';
+            if (!is_dir($upDir)) mkdir($upDir, 0777, true);
+            $fn = 'receipt_' . time() . '_' . rand(100, 999) . '.jpg';
+            if (move_uploaded_file($_FILES['receipt_photo']['tmp_name'], $upDir . $fn)) {
+                $receiptPhoto = '/storage/receipts/' . $fn;
+            }
+        }
+
         try {
-            $orderId = PaymentService::submitCardOrder($user['id'], $planId, $receiptText, null);
+            $orderId = PaymentService::submitCardOrder($user['id'], $planId, $receiptText, $receiptPhoto);
             Response::json([
                 'success' => true,
                 'order_id' => $orderId,

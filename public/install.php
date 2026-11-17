@@ -189,6 +189,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 "ALTER TABLE plans ADD COLUMN hwid_limit INTEGER NOT NULL DEFAULT 0",
                 "ALTER TABLE services ADD COLUMN ip_limit INTEGER NOT NULL DEFAULT 1",
                 "ALTER TABLE services ADD COLUMN hwid_limit INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE admins ADD COLUMN telegram_id BIGINT DEFAULT NULL",
             ];
             foreach ($migrations as $mSql) {
                 try {
@@ -225,16 +227,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([$k, $v]);
             }
 
-            // 4. Create Super Admin Account
-            $adminCount = $pdo->query("SELECT COUNT(*) FROM admins WHERE role = 'super_admin'")->fetchColumn();
-            if ($adminCount == 0) {
-                $stmt = $pdo->prepare("INSERT INTO admins (username, password, name, role, permissions, is_active) VALUES (?, ?, ?, 'super_admin', ?, 1)");
+            // 4. Create or Update Super Admin Account
+            $stmtAdmin = $pdo->prepare("SELECT id FROM admins WHERE username = ?");
+            $stmtAdmin->execute([$adminUsername]);
+            $existingAdminId = $stmtAdmin->fetchColumn();
+
+            if ($existingAdminId) {
+                $stmt = $pdo->prepare("UPDATE admins SET password = ?, name = ?, telegram_id = ?, is_active = 1 WHERE id = ?");
+                $stmt->execute([
+                    password_hash($adminPassword, PASSWORD_BCRYPT),
+                    $adminName,
+                    $adminTelegramId ?: null,
+                    $existingAdminId
+                ]);
+            } else {
+                $stmt = $pdo->prepare("INSERT INTO admins (username, password, name, telegram_id, role, permissions, is_active) VALUES (?, ?, ?, ?, 'super_admin', ?, 1)");
                 $stmt->execute([
                     $adminUsername,
                     password_hash($adminPassword, PASSWORD_BCRYPT),
                     $adminName,
+                    $adminTelegramId ?: null,
                     json_encode(['*'])
                 ]);
+            }
+
+            // 4.1 Register / Link Admin in users table (with 10,000,000 Tomans initial balance for immediate test purchasing)
+            if (!empty($adminTelegramId)) {
+                $stmtUserCheck = $pdo->prepare("SELECT id FROM users WHERE telegram_id = ?");
+                $stmtUserCheck->execute([$adminTelegramId]);
+                $existingUserId = $stmtUserCheck->fetchColumn();
+
+                if ($existingUserId) {
+                    $pdo->prepare("UPDATE users SET is_admin = 1, balance = GREATEST(balance, 10000000) WHERE id = ?")
+                        ->execute([$existingUserId]);
+                } else {
+                    $stmtUserInsert = $pdo->prepare("INSERT INTO users (telegram_id, username, first_name, last_name, balance, step, step_data, is_admin) 
+                        VALUES (?, ?, ?, '', 10000000, 'idle', '{}', 1)");
+                    $stmtUserInsert->execute([
+                        $adminTelegramId,
+                        $adminUsername,
+                        $adminName ?: 'مدیر کل'
+                    ]);
+                }
             }
 
             // 5. Seed Default Buttons

@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS users (
     first_name VARCHAR(150),
     last_name VARCHAR(150),
     balance INTEGER DEFAULT 0,
+    is_admin INTEGER NOT NULL DEFAULT 0,
     step VARCHAR(100) DEFAULT 'idle',
     step_data TEXT,
     is_banned INTEGER DEFAULT 0,
@@ -105,6 +106,7 @@ CREATE TABLE IF NOT EXISTS admins (
     username VARCHAR(100) UNIQUE NOT NULL,
     password TEXT NOT NULL,
     name VARCHAR(150) NOT NULL,
+    telegram_id BIGINT DEFAULT NULL,
     role VARCHAR(50) DEFAULT 'operator', -- 'super_admin' or 'operator'
     permissions TEXT, -- JSON array of allowed permissions
     is_active INTEGER DEFAULT 1,
