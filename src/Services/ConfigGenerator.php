@@ -34,7 +34,8 @@ class ConfigGenerator
         $clientEmail = 'u' . $order['user_id'] . '_' . substr(md5(uniqid()), 0, 6);
         $trafficGb = (int)$plan['traffic_gb'];
         $days = (int)$plan['days'];
-        $ipLimit = (int)$plan['ip_limit'];
+        $ipLimit = (int)($plan['ip_limit'] ?? 1);
+        $hwidLimit = (int)($plan['hwid_limit'] ?? 0);
 
         // Pick inbound if set in plan or panel
         $inboundId = 0;
@@ -49,6 +50,7 @@ class ConfigGenerator
             'traffic_gb' => $trafficGb,
             'days' => $days,
             'ip_limit' => $ipLimit,
+            'hwid_limit' => $hwidLimit,
             'inbound_id' => $inboundId,
         ]);
 
@@ -78,6 +80,7 @@ class ConfigGenerator
             'traffic_gb' => $trafficGb,
             'days' => $days,
             'ip_limit' => $ipLimit,
+            'hwid_limit' => $hwidLimit,
             'expires_at' => $expiresAt,
         ]);
 

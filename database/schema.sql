@@ -35,7 +35,8 @@ CREATE TABLE IF NOT EXISTS plans (
     price INTEGER NOT NULL DEFAULT 0, -- Toman
     traffic_gb INTEGER NOT NULL DEFAULT 0,
     days INTEGER NOT NULL DEFAULT 30,
-    ip_limit INTEGER NOT NULL DEFAULT 1, -- 0 for unlimited, 1/2/3 for IP limit
+    ip_limit INTEGER NOT NULL DEFAULT 1, -- 0 for unlimited
+    hwid_limit INTEGER NOT NULL DEFAULT 0, -- 0 for unlimited
     panel_id INTEGER DEFAULT 0, -- 0 = Auto-balance / Any active panel
     is_active INTEGER DEFAULT 1,
     sort_order INTEGER DEFAULT 0,
@@ -92,6 +93,7 @@ CREATE TABLE IF NOT EXISTS services (
     traffic_gb INTEGER DEFAULT 0,
     days INTEGER DEFAULT 30,
     ip_limit INTEGER DEFAULT 1,
+    hwid_limit INTEGER DEFAULT 0,
     used_traffic_bytes BIGINT DEFAULT 0,
     expires_at DATETIME,
     is_active INTEGER DEFAULT 1,

@@ -31,8 +31,8 @@ class Plan
     public static function create(array $data): int
     {
         $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("INSERT INTO plans (name, description, category, price, traffic_gb, days, ip_limit, panel_id, is_active, sort_order) 
-            VALUES (:name, :description, :category, :price, :traffic_gb, :days, :ip_limit, :panel_id, :is_active, :sort_order)");
+        $stmt = $pdo->prepare("INSERT INTO plans (name, description, category, price, traffic_gb, days, ip_limit, hwid_limit, panel_id, is_active, sort_order) 
+            VALUES (:name, :description, :category, :price, :traffic_gb, :days, :ip_limit, :hwid_limit, :panel_id, :is_active, :sort_order)");
 
         $stmt->execute([
             'name' => $data['name'],
@@ -42,6 +42,7 @@ class Plan
             'traffic_gb' => (int)$data['traffic_gb'],
             'days' => (int)($data['days'] ?? 30),
             'ip_limit' => (int)($data['ip_limit'] ?? 1),
+            'hwid_limit' => (int)($data['hwid_limit'] ?? 0),
             'panel_id' => (int)($data['panel_id'] ?? 0),
             'is_active' => (int)($data['is_active'] ?? 1),
             'sort_order' => (int)($data['sort_order'] ?? 0),
@@ -61,6 +62,7 @@ class Plan
             traffic_gb = :traffic_gb, 
             days = :days, 
             ip_limit = :ip_limit, 
+            hwid_limit = :hwid_limit, 
             panel_id = :panel_id, 
             is_active = :is_active, 
             sort_order = :sort_order 
@@ -75,6 +77,7 @@ class Plan
             'traffic_gb' => (int)$data['traffic_gb'],
             'days' => (int)($data['days'] ?? 30),
             'ip_limit' => (int)($data['ip_limit'] ?? 1),
+            'hwid_limit' => (int)($data['hwid_limit'] ?? 0),
             'panel_id' => (int)($data['panel_id'] ?? 0),
             'is_active' => (int)($data['is_active'] ?? 1),
             'sort_order' => (int)($data['sort_order'] ?? 0),

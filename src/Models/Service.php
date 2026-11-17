@@ -46,8 +46,8 @@ class Service
     public static function create(array $data): int
     {
         $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("INSERT INTO services (order_id, user_id, panel_id, client_uuid, client_email, inbound_id, subscription_url, config_link, wireguard_conf, traffic_gb, days, ip_limit, used_traffic_bytes, expires_at, is_active) 
-            VALUES (:order_id, :user_id, :panel_id, :client_uuid, :client_email, :inbound_id, :subscription_url, :config_link, :wireguard_conf, :traffic_gb, :days, :ip_limit, 0, :expires_at, 1)");
+        $stmt = $pdo->prepare("INSERT INTO services (order_id, user_id, panel_id, client_uuid, client_email, inbound_id, subscription_url, config_link, wireguard_conf, traffic_gb, days, ip_limit, hwid_limit, used_traffic_bytes, expires_at, is_active) 
+            VALUES (:order_id, :user_id, :panel_id, :client_uuid, :client_email, :inbound_id, :subscription_url, :config_link, :wireguard_conf, :traffic_gb, :days, :ip_limit, :hwid_limit, 0, :expires_at, 1)");
 
         $stmt->execute([
             'order_id' => $data['order_id'] ?? null,
@@ -62,6 +62,7 @@ class Service
             'traffic_gb' => (int)$data['traffic_gb'],
             'days' => (int)$data['days'],
             'ip_limit' => (int)($data['ip_limit'] ?? 1),
+            'hwid_limit' => (int)($data['hwid_limit'] ?? 0),
             'expires_at' => $data['expires_at'],
         ]);
 

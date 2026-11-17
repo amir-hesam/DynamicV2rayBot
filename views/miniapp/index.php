@@ -1,1083 +1,1450 @@
 <!DOCTYPE html>
-<html lang="fa" dir="rtl">
+<html lang="fa" dir="rtl" class="theme-dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>VPN Master Mini App</title>
     <!-- Telegram WebApp SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vazirmatn Font -->
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
-    <!-- QRCode library -->
+    <!-- QRCode JS -->
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            400: '#818cf8',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        body {
-            font-family: 'Vazirmatn', sans-serif;
+        * {
+            box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             user-select: none;
+            -webkit-user-select: none;
+            touch-action: pan-y;
+            overflow-x: hidden;
+            transition: background-color 0.25s ease, color 0.25s ease;
         }
-        :root {
-            --app-primary: <?= htmlspecialchars($primaryColor ?? '#2563eb') ?>;
-            --app-accent: <?= htmlspecialchars($accentColor ?? '#10b981') ?>;
-            --app-text: <?= htmlspecialchars($textColor ?? '#ffffff') ?>;
-            --app-radius: <?= htmlspecialchars($btnRadius ?? '16px') ?>;
+
+        /* --- THEME STYLES --- */
+        /* Dark Theme */
+        html.theme-dark body {
+            background-color: #0b0f19;
+            color: #f1f5f9;
         }
-        .btn-custom-primary {
-            background-color: var(--app-primary) !important;
-            color: var(--app-text) !important;
-            border-radius: var(--app-radius) !important;
+        html.theme-dark .app-header {
+            background: rgba(11, 15, 25, 0.85);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
         }
-        .btn-custom-accent {
-            background-color: var(--app-accent) !important;
-            color: var(--app-text) !important;
-            border-radius: var(--app-radius) !important;
+        html.theme-dark .app-card {
+            background: rgba(22, 30, 49, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            color: #f8fafc;
         }
-        .text-custom-primary {
-            color: var(--app-primary) !important;
+        html.theme-dark .app-card-solid {
+            background: #131b2e;
+            border: 1px solid rgba(255, 255, 255, 0.08);
         }
-        .bg-custom-primary {
-            background-color: var(--app-primary) !important;
+        html.theme-dark .app-input {
+            background: #0d1322;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #f8fafc;
         }
-        .border-custom-primary {
-            border-color: var(--app-primary) !important;
+        html.theme-dark .app-input:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
         }
-        /* Custom scrollbar */
-        ::-webkit-scrollbar {
-            display: none;
+        html.theme-dark .app-navbar {
+            background: rgba(15, 23, 42, 0.9);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        html.theme-dark .text-muted { color: #94a3b8; }
+        html.theme-dark .bg-subtle { background-color: rgba(255, 255, 255, 0.05); }
+
+        /* Light Theme */
+        html.theme-light body {
+            background-color: #f8fafc;
+            color: #0f172a;
+        }
+        html.theme-light .app-header {
+            background: rgba(255, 255, 255, 0.9);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+        html.theme-light .app-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.05);
+            color: #0f172a;
+        }
+        html.theme-light .app-card-solid {
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+        }
+        html.theme-light .app-input {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            color: #0f172a;
+        }
+        html.theme-light .app-input:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
+        }
+        html.theme-light .app-navbar {
+            background: rgba(255, 255, 255, 0.92);
+            border-top: 1px solid #e2e8f0;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.04);
+        }
+        html.theme-light .text-muted { color: #64748b; }
+        html.theme-light .bg-subtle { background-color: #f1f5f9; }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { display: none; }
+
+        /* Slider Thumb Styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 22px;
+            width: 22px;
+            border-radius: 50%;
+            background: #6366f1;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.5);
+            border: 2px solid #ffffff;
+        }
+        input[type=range]::-moz-range-thumb {
+            height: 22px;
+            width: 22px;
+            border-radius: 50%;
+            background: #6366f1;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.5);
+            border: 2px solid #ffffff;
         }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen pb-28 flex flex-col antialiased">
+<body class="min-h-screen pb-32 flex flex-col antialiased">
 
-    <!-- Top Sticky Header -->
-    <header class="p-3.5 border-b border-slate-900 bg-slate-950/80 backdrop-blur sticky top-0 z-30 flex items-center justify-between">
-        <div class="flex items-center gap-2.5">
-            <div class="w-9 h-9 rounded-xl flex items-center justify-center text-lg font-bold shadow-md shadow-blue-500/20 btn-custom-primary">
-                ⚡
+    <!-- ============================================================== -->
+    <!-- TOP STICKY HEADER                                              -->
+    <!-- ============================================================== -->
+    <header class="app-header px-4 py-3 sticky top-0 z-40 flex items-center justify-between transition-colors">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-brand-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/25">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
             </div>
             <div>
-                <h1 class="font-bold text-xs text-white">فروشگاه هوشمند VPN</h1>
-                <p class="text-[10px] text-slate-400" id="header-user-text">در حال بارگذاری اطلاعات...</p>
+                <h1 class="font-bold text-sm leading-tight tracking-tight flex items-center gap-1.5">
+                    <span>اینترنت آزاد و پرسرعت</span>
+                    <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                </h1>
+                <p class="text-[11px] text-muted flex items-center gap-1 mt-0.5" id="header-user-text">
+                    در حال اتصال...
+                </p>
             </div>
         </div>
+
         <div class="flex items-center gap-2">
-            <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-900 border border-slate-800 text-[11px] text-amber-300 font-mono">
-                <span>💰</span>
-                <span id="header-balance">0</span>
-                <span class="text-[9px] text-slate-400 font-sans">تومان</span>
+            <!-- Theme Toggle Button -->
+            <button onclick="toggleTheme()" class="w-9 h-9 rounded-xl flex items-center justify-center bg-subtle text-sm transition hover:scale-105 active:scale-95" title="تغییر حالت تم">
+                <span id="theme-icon">🌙</span>
+            </button>
+
+            <!-- Quick Balance Pill -->
+            <div onclick="switchTab('wallet')" class="cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border border-indigo-500/20 text-xs font-semibold hover:bg-indigo-500/20 transition active:scale-95">
+                <span class="text-xs">💰</span>
+                <span id="header-balance" class="font-mono">0</span>
+                <span class="text-[10px] font-normal text-muted">تومان</span>
             </div>
         </div>
     </header>
 
-    <!-- Main Content Area -->
-    <main class="flex-1 p-4 max-w-lg mx-auto w-full">
+    <!-- ============================================================== -->
+    <!-- MAIN CONTAINER                                                 -->
+    <!-- ============================================================== -->
+    <main class="flex-1 p-4 max-w-md mx-auto w-full space-y-6">
 
         <!-- ============================================================== -->
         <!-- TAB 1: حساب کاربری (PROFILE) [Rightmost Tab 1]                  -->
         <!-- ============================================================== -->
         <section id="tab-profile" class="space-y-4">
-            <!-- User Card -->
-            <div class="p-5 rounded-3xl bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 shadow-xl space-y-4">
+            <!-- Profile Hero Card -->
+            <div class="app-card rounded-3xl p-5 relative overflow-hidden space-y-4">
                 <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-2xl text-white shadow-lg shadow-blue-500/30">
+                    <div class="flex items-center gap-3.5">
+                        <div id="profile-avatar" class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-600 to-indigo-500 text-white flex items-center justify-center text-2xl font-bold shadow-lg shadow-indigo-500/20">
                             👤
                         </div>
                         <div>
-                            <h2 class="font-bold text-sm text-white" id="profile-name">کاربر تلگرام</h2>
-                            <p class="text-xs text-blue-400 font-mono mt-0.5" id="profile-username">@username</p>
-                            <span class="text-[10px] text-slate-500 font-mono" id="profile-tgid">ID: 00000000</span>
+                            <h2 class="font-bold text-base leading-tight" id="profile-name">کاربر گرامی</h2>
+                            <p class="text-xs text-indigo-500 dark:text-indigo-400 font-mono mt-0.5" id="profile-username">@username</p>
+                            <div class="flex items-center gap-1.5 mt-1 cursor-pointer" onclick="copyText(document.getElementById('profile-tgid').innerText, 'شناسه عددی کپی شد')">
+                                <span class="text-[11px] font-mono text-muted" id="profile-tgid">ID: 00000000</span>
+                                <svg class="w-3.5 h-3.5 text-muted hover:text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                            </div>
                         </div>
                     </div>
-                    <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px]">
-                        عضو ویژه
+                    <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[11px] font-semibold">
+                        عضو عادی
                     </span>
                 </div>
 
-                <!-- Balance Box -->
-                <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                <!-- Balance Showcase -->
+                <div class="app-card-solid rounded-2xl p-4 flex items-center justify-between">
                     <div>
-                        <div class="text-[11px] text-slate-400">موجودی کیف پول شما</div>
-                        <div class="text-lg font-bold text-white font-mono mt-0.5">
-                            <span id="profile-balance">0</span> <span class="text-xs font-sans text-slate-400">تومان</span>
+                        <div class="text-[11px] text-muted">موجودی کیف پول شما</div>
+                        <div class="flex items-baseline gap-1 mt-1">
+                            <span class="text-2xl font-extrabold font-mono text-emerald-500" id="profile-balance">0</span>
+                            <span class="text-xs text-muted">تومان</span>
                         </div>
                     </div>
-                    <button onclick="switchTab('wallet')" class="px-4 py-2 rounded-xl text-xs font-bold btn-custom-primary transition shadow-md">
-                        + شارژ حساب
+                    <button onclick="switchTab('wallet')" class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 text-white text-xs font-semibold shadow-md shadow-emerald-500/20 hover:opacity-90 active:scale-95 transition">
+                        + شارژ موجودی
                     </button>
-                </div>
-
-                <!-- Account Stats Grid -->
-                <div class="grid grid-cols-2 gap-3 text-center">
-                    <div class="p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80">
-                        <div class="text-[10px] text-slate-400">اشتراک‌های فعال</div>
-                        <div class="text-base font-bold text-blue-400 mt-1 font-mono" id="profile-active-services">0</div>
-                    </div>
-                    <div class="p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80">
-                        <div class="text-[10px] text-slate-400">تاریخ عضویت</div>
-                        <div class="text-xs font-bold text-slate-300 mt-1.5" id="profile-reg-date">-</div>
-                    </div>
                 </div>
             </div>
 
-            <!-- Quick Action Links -->
-            <div class="space-y-2">
-                <button onclick="switchTab('shop')" class="w-full p-4 rounded-2xl bg-slate-900 border border-slate-800 hover:border-blue-500 transition flex items-center justify-between text-right">
-                    <div class="flex items-center gap-3">
-                        <span class="text-xl">🛍</span>
-                        <div>
-                            <div class="text-xs font-bold text-white">خرید اشتراک جدید</div>
-                            <div class="text-[10px] text-slate-400">سنایی، پاسارگاد، مرزبان، وایرگارد و سرویس دلخواه</div>
-                        </div>
-                    </div>
-                    <span class="text-slate-500 text-xs">←</span>
-                </button>
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-2 gap-3">
+                <div class="app-card rounded-2xl p-4 text-center">
+                    <div class="text-2xl mb-1">🚀</div>
+                    <div class="text-lg font-bold font-mono" id="profile-active-services">0</div>
+                    <div class="text-xs text-muted mt-0.5">سرویس‌های فعال من</div>
+                </div>
+                <div class="app-card rounded-2xl p-4 text-center">
+                    <div class="text-2xl mb-1">📅</div>
+                    <div class="text-xs font-medium" id="profile-joined">امروز</div>
+                    <div class="text-xs text-muted mt-0.5">تاریخ عضویت در ربات</div>
+                </div>
+            </div>
 
-                <button onclick="switchTab('services')" class="w-full p-4 rounded-2xl bg-slate-900 border border-slate-800 hover:border-emerald-500 transition flex items-center justify-between text-right">
+            <!-- Profile Menu Items -->
+            <div class="app-card rounded-3xl divide-y divide-slate-100 dark:divide-slate-800/60 overflow-hidden">
+                <div onclick="switchTab('shop')" class="p-4 flex items-center justify-between cursor-pointer hover:bg-subtle transition">
                     <div class="flex items-center gap-3">
-                        <span class="text-xl">🔑</span>
-                        <div>
-                            <div class="text-xs font-bold text-white">مشاهده سرویس‌های من</div>
-                            <div class="text-[10px] text-slate-400">استعلام زنده ترافیک، روزهای باقی‌مانده و کانفیگ‌ها</div>
-                        </div>
+                        <span class="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center text-sm">🛍</span>
+                        <span class="text-xs font-medium">خرید اشتراک VPN جدید</span>
                     </div>
-                    <span class="text-slate-500 text-xs">←</span>
-                </button>
+                    <span class="text-muted text-xs">←</span>
+                </div>
+                <div onclick="switchTab('services')" class="p-4 flex items-center justify-between cursor-pointer hover:bg-subtle transition">
+                    <div class="flex items-center gap-3">
+                        <span class="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center text-sm">📱</span>
+                        <span class="text-xs font-medium">مشاهده کانفیگ‌ها و اکانت‌ها</span>
+                    </div>
+                    <span class="text-muted text-xs">←</span>
+                </div>
+                <div onclick="switchTab('wallet')" class="p-4 flex items-center justify-between cursor-pointer hover:bg-subtle transition">
+                    <div class="flex items-center gap-3">
+                        <span class="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center text-sm">💳</span>
+                        <span class="text-xs font-medium">کیف پول و کارت به کارت</span>
+                    </div>
+                    <span class="text-muted text-xs">←</span>
+                </div>
+                <div onclick="showSupportModal()" class="p-4 flex items-center justify-between cursor-pointer hover:bg-subtle transition">
+                    <div class="flex items-center gap-3">
+                        <span class="w-8 h-8 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center text-sm">📞</span>
+                        <span class="text-xs font-medium">ارتباط با پشتیبانی ۲۴ ساعته</span>
+                    </div>
+                    <span class="text-muted text-xs">←</span>
+                </div>
             </div>
         </section>
 
+
         <!-- ============================================================== -->
-        <!-- TAB 2: خرید سرویس جدید (SHOP) [2nd from Right]                 -->
+        <!-- TAB 2: خرید سرویس جدید (SHOP WIZARD) [Tab 2]                   -->
         <!-- ============================================================== -->
-        <section id="tab-shop" class="space-y-4 hidden">
-
-            <!-- Step Progress Indicator -->
-            <div class="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-between text-xs">
-                <div class="flex items-center gap-2">
-                    <span id="step-badge" class="w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center text-xs font-bold">۱</span>
-                    <span id="step-title" class="font-bold text-white">انتخاب سرور (لوکیشن)</span>
+        <section id="tab-shop" class="space-y-5 hidden">
+            <!-- Wizard Step 1: Select Server -->
+            <div class="space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <label class="text-xs font-bold flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded-full bg-brand-500 text-white text-[11px] flex items-center justify-center">۱</span>
+                        <span>مرحله اول: انتخاب لوکیشن و سرور</span>
+                    </label>
+                    <span class="text-[11px] text-muted" id="server-count-badge">0 سرور فعال</span>
                 </div>
-                <button id="shop-back-btn" onclick="prevShopStep()" class="hidden text-[11px] text-blue-400 hover:text-blue-300">
-                    ← مرحله قبلی
-                </button>
-            </div>
-
-            <!-- STEP 1: SELECT SERVER (PANEL) -->
-            <div id="shop-step-1" class="space-y-3">
-                <div class="text-xs text-slate-400 px-1">
-                    📌 سرور یا لوکیشن مورد نظرتان را برای اتصال انتخاب نمایید:
-                </div>
-                <div id="panels-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div class="text-center py-8 text-xs text-slate-500 col-span-2">در حال بارگذاری سرورها...</div>
+                <div id="servers-container" class="grid grid-cols-2 gap-2.5">
+                    <!-- Populated dynamically -->
                 </div>
             </div>
 
-            <!-- STEP 2: SELECT CATEGORY -->
-            <div id="shop-step-2" class="space-y-3 hidden">
-                <div class="p-3 rounded-2xl bg-slate-900/60 border border-slate-800 flex items-center justify-between text-xs">
-                    <span class="text-slate-400">سرور انتخاب شده:</span>
-                    <span class="font-bold text-white flex items-center gap-1.5" id="selected-server-name">سرور</span>
-                </div>
-
-                <div class="text-xs text-slate-400 px-1">
-                    📌 دسته‌بندی اشتراک خود را انتخاب فرمایید:
-                </div>
-
-                <!-- Category Pills -->
-                <div id="categories-container" class="flex flex-wrap gap-2">
-                    <!-- Dynamic categories -->
+            <!-- Wizard Step 2: Select Category -->
+            <div id="categories-wrapper" class="space-y-2.5 hidden">
+                <label class="text-xs font-bold flex items-center gap-1.5">
+                    <span class="w-5 h-5 rounded-full bg-brand-500 text-white text-[11px] flex items-center justify-center">۲</span>
+                    <span>مرحله دوم: انتخاب دوره / دسته‌بندی</span>
+                </label>
+                <div id="categories-container" class="flex gap-2 overflow-x-auto pb-1.5">
+                    <!-- Categories pills populated dynamically -->
                 </div>
             </div>
 
-            <!-- STEP 3: CHOOSE READY PLAN OR CUSTOM SERVICE -->
-            <div id="shop-step-3" class="space-y-4 hidden">
-                <!-- Mode Switcher (Ready Plans vs Custom Service) -->
-                <div id="custom-switch-container" class="hidden p-1 bg-slate-900 rounded-2xl border border-slate-800 grid grid-cols-2 gap-1 text-xs">
-                    <button id="btn-mode-ready" onclick="setPlanMode('ready')" class="py-2.5 rounded-xl font-bold transition bg-blue-600 text-white shadow-md">
-                        📋 پلن‌های آماده
-                    </button>
-                    <button id="btn-mode-custom" onclick="setPlanMode('custom')" class="py-2.5 rounded-xl font-bold transition text-slate-400 hover:text-white">
-                        ✨ ساخت سرویس دلخواه
-                    </button>
+            <!-- Wizard Step 3: Ready Plans vs Custom Service -->
+            <div id="plans-wrapper" class="space-y-3.5 hidden">
+                <div class="flex items-center justify-between">
+                    <label class="text-xs font-bold flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded-full bg-brand-500 text-white text-[11px] flex items-center justify-center">۳</span>
+                        <span>مرحله سوم: انتخاب یا شخصی‌سازی پلن</span>
+                    </label>
+                    
+                    <!-- Toggle Ready vs Custom -->
+                    <div id="custom-service-toggle-wrap" class="flex items-center gap-1 p-0.5 rounded-xl bg-subtle text-xs border border-slate-200 dark:border-slate-800 hidden">
+                        <button id="toggle-ready-plans" onclick="setPlanMode('ready')" class="px-2.5 py-1 rounded-lg font-medium text-[11px] transition bg-brand-500 text-white shadow-sm">
+                            پلن‌های آماده
+                        </button>
+                        <button id="toggle-custom-plan" onclick="setPlanMode('custom')" class="px-2.5 py-1 rounded-lg font-medium text-[11px] transition text-muted hover:text-brand-500">
+                            سرویس دلخواه ⚙️
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Sub-view 3A: Ready Plans -->
+                <!-- Mode A: Ready Plans List -->
                 <div id="ready-plans-container" class="space-y-3">
-                    <!-- Dynamic ready plans -->
+                    <!-- Populated dynamically -->
                 </div>
 
-                <!-- Sub-view 3B: Custom Service Builder -->
-                <div id="custom-builder-container" class="hidden space-y-4 p-5 rounded-3xl bg-slate-900 border border-slate-800">
-                    <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-                        <div>
-                            <h4 class="font-bold text-white text-xs">سفارشی‌سازی حجم و زمان</h4>
-                            <p class="text-[10px] text-slate-400">قیمت به صورت آنی محاسبه می‌شود</p>
-                        </div>
-                        <span class="text-xl">🎛</span>
+                <!-- Mode B: Custom Service Builder -->
+                <div id="custom-plan-container" class="app-card rounded-3xl p-5 space-y-5 hidden">
+                    <div class="text-center pb-2 border-b border-slate-100 dark:border-slate-800">
+                        <h3 class="font-bold text-sm">ساخت سرویس سفارشی شما</h3>
+                        <p class="text-[11px] text-muted mt-1">حجم و زمان دقیق اشتراک را طبق نیاز خود تنظیم کنید</p>
                     </div>
 
-                    <!-- Volume Slider -->
-                    <div>
-                        <div class="flex items-center justify-between text-xs mb-2">
-                            <span class="text-slate-300">حجم اشتراک:</span>
-                            <span class="font-bold text-blue-400 text-sm font-mono"><span id="custom-vol-val">30</span> گیگابایت</span>
+                    <!-- Traffic Slider -->
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="text-muted">حجم اشتراک:</span>
+                            <span class="font-mono font-bold text-sm text-brand-500"><span id="custom-traffic-val">20</span> گیگابایت</span>
                         </div>
-                        <input type="range" id="custom-vol-slider" min="5" max="500" value="30" oninput="calculateCustomPrice()" class="w-full accent-blue-600 cursor-pointer">
-                        <div class="flex justify-between text-[10px] text-slate-500 mt-1">
-                            <span id="custom-min-gb">5 GB</span>
-                            <span id="custom-max-gb">500 GB</span>
+                        <input type="range" id="custom-traffic-slider" min="5" max="300" step="5" value="20" class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-800 cursor-pointer" oninput="updateCustomCalculation()">
+                        <div class="flex justify-between text-[10px] text-muted font-mono">
+                            <span id="custom-traffic-min">5 GB</span>
+                            <span id="custom-traffic-max">300 GB</span>
                         </div>
                     </div>
 
                     <!-- Days Slider -->
-                    <div>
-                        <div class="flex items-center justify-between text-xs mb-2">
-                            <span class="text-slate-300">مدت اعتبار:</span>
-                            <span class="font-bold text-emerald-400 text-sm font-mono"><span id="custom-days-val">30</span> روز</span>
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="text-muted">مدت اعتبار:</span>
+                            <span class="font-mono font-bold text-sm text-indigo-500"><span id="custom-days-val">30</span> روز</span>
                         </div>
-                        <input type="range" id="custom-days-slider" min="1" max="365" value="30" oninput="calculateCustomPrice()" class="w-full accent-emerald-500 cursor-pointer">
-                        <div class="flex justify-between text-[10px] text-slate-500 mt-1">
-                            <span id="custom-min-days">1 روز</span>
-                            <span id="custom-max-days">365 روز</span>
+                        <input type="range" id="custom-days-slider" min="1" max="180" step="1" value="30" class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-800 cursor-pointer" oninput="updateCustomCalculation()">
+                        <div class="flex justify-between text-[10px] text-muted font-mono">
+                            <span id="custom-days-min">1 روز</span>
+                            <span id="custom-days-max">180 روز</span>
                         </div>
                     </div>
 
-                    <!-- Live Calculated Price Card -->
-                    <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                    <!-- Limitations summary -->
+                    <div class="app-card-solid rounded-2xl p-3 flex items-center justify-between text-xs">
+                        <div class="flex items-center gap-1.5 text-muted">
+                            <span>👥</span>
+                            <span>محدودیت IP:</span>
+                        </div>
+                        <span class="font-semibold text-brand-500">۱ کاربر همزمان</span>
+                    </div>
+
+                    <!-- Custom Price Calculator Display -->
+                    <div class="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/40 flex items-center justify-between">
                         <div>
-                            <span class="text-[10px] text-slate-400">مبلغ کل قابل پرداخت:</span>
-                            <div class="text-base font-bold text-amber-400 font-mono mt-0.5">
-                                <span id="custom-price-val">0</span> <span class="text-xs font-sans text-slate-400">تومان</span>
+                            <div class="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">مبلغ قابل پرداخت</div>
+                            <div class="flex items-baseline gap-1 mt-0.5">
+                                <span class="text-xl font-black font-mono text-indigo-700 dark:text-indigo-300" id="custom-price-display">0</span>
+                                <span class="text-[11px] text-muted">تومان</span>
                             </div>
                         </div>
-                        <button onclick="startCheckoutCustom()" class="px-5 py-2.5 rounded-xl font-bold text-xs btn-custom-primary shadow-lg shadow-blue-600/30">
-                            خرید این پلن →
+                        <button onclick="openCheckoutModal(null, true)" class="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/25 active:scale-95 transition">
+                            ثبت و خرید سرویس
                         </button>
                     </div>
                 </div>
             </div>
-
-            <!-- STEP 4: CHECKOUT & PAYMENT -->
-            <div id="shop-step-4" class="space-y-4 hidden">
-                <!-- Summary Card -->
-                <div class="p-5 rounded-3xl bg-slate-900 border border-slate-800 space-y-3">
-                    <h4 class="font-bold text-white text-xs pb-2 border-b border-slate-800 flex items-center justify-between">
-                        <span>🧾 خلاصه فاکتور خرید</span>
-                        <span class="text-amber-400 font-mono text-sm" id="checkout-price">0 تومان</span>
-                    </h4>
-
-                    <div class="space-y-2 text-xs text-slate-300">
-                        <div class="flex justify-between">
-                            <span class="text-slate-400">سرور متصل:</span>
-                            <span class="font-bold text-white" id="checkout-server">-</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-slate-400">عنوان اشتراک:</span>
-                            <span class="font-bold text-white" id="checkout-title">-</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-slate-400">حجم کل:</span>
-                            <span class="font-mono text-blue-400" id="checkout-vol">-</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-slate-400">مدت اعتبار:</span>
-                            <span class="font-mono text-emerald-400" id="checkout-days">-</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Payment Method Selection -->
-                <div class="space-y-3">
-                    <label class="block text-xs font-medium text-slate-300">روش پرداخت مورد نظر را انتخاب نمایید:</label>
-
-                    <!-- Option A: Wallet Balance (Instant) -->
-                    <label class="flex items-center justify-between p-4 rounded-2xl bg-slate-900 border border-slate-800 hover:border-emerald-500 cursor-pointer transition">
-                        <div class="flex items-center gap-3">
-                            <input type="radio" name="pay_method" value="wallet" checked onchange="togglePayMethod('wallet')" class="text-emerald-500">
-                            <div>
-                                <div class="text-xs font-bold text-white flex items-center gap-1.5">
-                                    <span>⚡ پرداخت از موجودی کیف پول</span>
-                                    <span class="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">تحویل آنی</span>
-                                </div>
-                                <div class="text-[10px] text-slate-400 mt-0.5">
-                                    موجودی فعلی: <span class="text-emerald-400 font-mono" id="checkout-user-balance">0</span> تومان
-                                </div>
-                            </div>
-                        </div>
-                        <span class="text-xl">💳</span>
-                    </label>
-
-                    <!-- Option B: Card to Card -->
-                    <label class="flex items-center justify-between p-4 rounded-2xl bg-slate-900 border border-slate-800 hover:border-blue-500 cursor-pointer transition">
-                        <div class="flex items-center gap-3">
-                            <input type="radio" name="pay_method" value="card" onchange="togglePayMethod('card')" class="text-blue-500">
-                            <div>
-                                <div class="text-xs font-bold text-white">کارت به کارت بانکی</div>
-                                <div class="text-[10px] text-slate-400 mt-0.5">واریز به شماره کارت و ثبت شماره پیگیری</div>
-                            </div>
-                        </div>
-                        <span class="text-xl">🏦</span>
-                    </label>
-                </div>
-
-                <!-- Card Details & Receipt Field (Visible if Card-to-Card is selected) -->
-                <div id="card-fields-container" class="hidden space-y-3 p-4 rounded-2xl bg-slate-900/60 border border-slate-800">
-                    <div id="checkout-cards-list" class="space-y-2">
-                        <!-- Dynamic Bank Cards -->
-                    </div>
-                    <div>
-                        <label class="block text-[11px] text-slate-300 mb-1">کد پیگیری یا شماره فیش واریزی:</label>
-                        <input type="text" id="checkout-receipt-text" placeholder="مثال: 123456 یا شماره ارجاع" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white">
-                    </div>
-                </div>
-
-                <!-- Final Action Button -->
-                <button id="btn-final-pay" onclick="executeFinalPayment()" class="w-full py-3.5 rounded-2xl font-bold text-xs btn-custom-primary shadow-xl shadow-blue-500/30 flex items-center justify-center gap-2 transition">
-                    <span>⚡</span> تکمیل خرید و دریافت اشتراک
-                </button>
-            </div>
         </section>
 
+
         <!-- ============================================================== -->
-        <!-- TAB 3: سرویس‌های من (MY SERVICES) [3rd from Right]             -->
+        <!-- TAB 3: سرویس‌های من (MY SERVICES) [Tab 3]                       -->
         <!-- ============================================================== -->
         <section id="tab-services" class="space-y-4 hidden">
             <div class="flex items-center justify-between">
                 <div>
-                    <h2 class="font-bold text-sm text-white">سرویس‌های من</h2>
-                    <p class="text-[10px] text-slate-400 mt-0.5">استعلام زنده مصرف ترافیک و دانلود کانفیگ</p>
+                    <h2 class="font-bold text-sm">سرویس‌ها و کانفیگ‌های من</h2>
+                    <p class="text-[11px] text-muted mt-0.5">مشاهده حجم باقی‌مانده، لینک‌ها و دانلود کانفیگ WireGuard</p>
                 </div>
-                <button onclick="loadAppData(true)" class="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-blue-400 hover:text-white flex items-center gap-1">
-                    <span>🔄</span> بروزرسانی
+                <button onclick="loadAppData()" class="px-3 py-1.5 rounded-xl bg-subtle text-xs text-muted hover:text-brand-500 flex items-center gap-1 transition active:scale-95">
+                    <span>🔄</span>
+                    <span>بروزرسانی</span>
                 </button>
             </div>
 
-            <div id="services-container" class="space-y-3">
-                <div class="text-center py-8 text-xs text-slate-500">در حال دریافت و استعلام سرویس‌ها...</div>
+            <!-- Services List Container -->
+            <div id="services-container" class="space-y-3.5">
+                <!-- Populated dynamically -->
             </div>
         </section>
 
+
         <!-- ============================================================== -->
-        <!-- TAB 4: کیف پول (WALLET) [Leftmost Tab 4]                       -->
+        <!-- TAB 4: کیف پول (WALLET & RECHARGE) [Leftmost Tab 4]            -->
         <!-- ============================================================== -->
         <section id="tab-wallet" class="space-y-4 hidden">
-            <!-- Balance Card -->
-            <div class="p-6 rounded-3xl bg-gradient-to-br from-indigo-950 to-slate-950 border border-indigo-900/40 shadow-2xl space-y-4">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <span class="text-xs text-indigo-300">موجودی کیف پول شما</span>
-                        <div class="text-2xl font-bold text-white font-mono mt-1">
-                            <span id="wallet-balance-big">0</span> <span class="text-xs font-sans text-slate-400">تومان</span>
-                        </div>
-                    </div>
-                    <div class="w-12 h-12 rounded-2xl bg-indigo-600/30 border border-indigo-500/30 flex items-center justify-center text-2xl text-indigo-300">
-                        💳
-                    </div>
+            <!-- Wallet Balance Card -->
+            <div class="app-card rounded-3xl p-6 bg-gradient-to-br from-indigo-600 via-indigo-700 to-brand-700 text-white shadow-xl relative overflow-hidden space-y-3">
+                <div class="flex items-center justify-between text-xs opacity-90">
+                    <span>موجودی فعلی کیف پول</span>
+                    <span>VPN WALLET 💳</span>
                 </div>
-                <p class="text-[10px] text-indigo-300/80 leading-relaxed">
-                    با افزایش موجودی کیف پول، می‌توانید تمامی پلن‌ها و سرویس‌های دلخواه را به صورت آنی و بدون معطلی خریداری کنید.
+                <div class="flex items-baseline gap-2 py-1">
+                    <span class="text-3xl font-black font-mono tracking-tight" id="wallet-balance-val">0</span>
+                    <span class="text-xs font-normal opacity-80">تومان</span>
+                </div>
+                <p class="text-[11px] opacity-80 leading-relaxed">
+                    با شارژ کیف پول خود، می‌توانید تمام خریدهای آینده را به‌صورت آنی و خودکار تحویل بگیرید.
                 </p>
             </div>
 
-            <!-- Active Bank Cards -->
-            <div class="space-y-3">
-                <h4 class="font-bold text-xs text-white">کارت‌های بانکی فروشگاه جهت شارژ حساب:</h4>
-                <div id="wallet-cards-container" class="space-y-2.5">
-                    <!-- Dynamic Cards -->
+            <!-- Bank Card Info Card -->
+            <div class="app-card rounded-3xl p-5 space-y-4">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <h3 class="font-bold text-xs flex items-center gap-1.5">
+                        <span>💳</span>
+                        <span>شماره کارت فعال جهت واریز</span>
+                    </h3>
+                    <span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-500 font-medium">مورد تایید</span>
                 </div>
-            </div>
 
-            <!-- Top-up Form -->
-            <div class="p-5 rounded-3xl bg-slate-900 border border-slate-800 space-y-3">
-                <h4 class="font-bold text-xs text-white">ثبت فیش افزایش موجودی</h4>
-                <div>
-                    <label class="block text-[11px] text-slate-400 mb-1">مبلغ واریز شده (تومان):</label>
-                    <input type="number" id="topup-amount" placeholder="مثال: 100000" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-xs text-white font-mono">
+                <div class="app-card-solid rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-muted">بانک مقصد:</span>
+                        <span class="text-xs font-bold" id="card-bank-name">بانک ملی ایران</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-muted">به نام:</span>
+                        <span class="text-xs font-bold" id="card-holder-name">مدیریت سرور</span>
+                    </div>
+                    <div class="pt-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                        <div>
+                            <div class="text-[10px] text-muted">شماره کارت (لمس جهت کپی):</div>
+                            <div class="font-mono font-bold text-sm tracking-wider mt-0.5" id="card-number-val">6037-9974-1234-5678</div>
+                        </div>
+                        <button onclick="copyCardNumber()" class="px-3 py-1.5 rounded-xl bg-brand-500 text-white text-xs font-semibold shadow hover:bg-brand-600 transition active:scale-95">
+                            کپی کارت 📋
+                        </button>
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-[11px] text-slate-400 mb-1">کد پیگیری یا شماره ارجاع:</label>
-                    <input type="text" id="topup-receipt" placeholder="کد رهگیری تراکنش..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-xs text-white">
-                </div>
-                <button onclick="submitTopup()" class="w-full py-3 rounded-xl font-bold text-xs btn-custom-accent shadow-lg shadow-emerald-500/20 transition">
-                    ارسال فیش جهت تایید حساب
-                </button>
+
+                <!-- Upload Receipt Form -->
+                <form id="wallet-recharge-form" onsubmit="handleWalletRecharge(event)" class="space-y-3 pt-2">
+                    <div>
+                        <label class="block text-xs text-muted mb-1 font-medium">مبلغ واریز شده (تومان):</label>
+                        <input type="number" id="wallet-amount" required placeholder="مثلا: 100000" class="app-input w-full rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs text-muted mb-1 font-medium">تصویر رسید واریزی یا شماره پیگیری:</label>
+                        <input type="file" id="wallet-receipt-file" accept="image/*" class="app-input w-full rounded-xl p-2 text-xs focus:outline-none file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-brand-500 file:text-white">
+                        <input type="text" id="wallet-receipt-text" placeholder="یا کد پیگیری واریز را اینجا بنویسید" class="app-input w-full rounded-xl px-4 py-2 text-xs mt-2 focus:outline-none">
+                    </div>
+
+                    <button type="submit" id="btn-submit-wallet" class="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 hover:opacity-90 active:scale-95 transition">
+                        ارسال فیش واریز جهت تایید
+                    </button>
+                </form>
             </div>
         </section>
 
     </main>
 
+
     <!-- ============================================================== -->
-    <!-- FIXED BOTTOM NAVIGATION BAR (RTL: 1.Profile, 2.Shop, 3.Services, 4.Wallet) -->
+    <!-- FLOATING GLASS BOTTOM NAVIGATION BAR                           -->
+    <!-- 4 TABS RTL ORDER:                                              -->
+    <!-- 1 (Right): حساب کاربری                                          -->
+    <!-- 2: خرید سرویس جدید                                             -->
+    <!-- 3: سرویس‌های من                                                -->
+    <!-- 4 (Left): کیف پول                                              -->
     <!-- ============================================================== -->
-    <nav class="fixed bottom-0 left-0 right-0 z-40 bg-slate-950/90 backdrop-blur-lg border-t border-slate-900 py-2 px-3">
-        <div class="max-w-md mx-auto grid grid-cols-4 gap-1 text-center">
+    <nav class="app-navbar fixed bottom-0 left-0 right-0 z-40 max-w-md mx-auto px-2 py-2 flex items-center justify-around transition-colors">
+        
+        <!-- Tab 1: حساب کاربری (Rightmost) -->
+        <button onclick="switchTab('profile')" id="nav-btn-profile" class="flex-1 py-1.5 flex flex-col items-center justify-center gap-1 text-brand-500 transition active:scale-95">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            <span class="text-[10px] font-bold">حساب من</span>
+        </button>
 
-            <!-- 1. حساب کاربری (Rightmost) -->
-            <button onclick="switchTab('profile')" id="nav-profile" class="nav-btn flex flex-col items-center justify-center py-1.5 rounded-2xl text-slate-400 transition">
-                <span class="text-lg">👤</span>
-                <span class="text-[10px] mt-0.5 font-medium">حساب من</span>
-            </button>
+        <!-- Tab 2: خرید سرویس جدید -->
+        <button onclick="switchTab('shop')" id="nav-btn-shop" class="flex-1 py-1.5 flex flex-col items-center justify-center gap-1 text-muted hover:text-brand-500 transition active:scale-95">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            <span class="text-[10px] font-bold">خرید سرویس</span>
+        </button>
 
-            <!-- 2. خرید سرویس جدید (2nd from Right) -->
-            <button onclick="switchTab('shop')" id="nav-shop" class="nav-btn flex flex-col items-center justify-center py-1.5 rounded-2xl text-blue-500 font-bold transition">
-                <span class="text-lg">🛍</span>
-                <span class="text-[10px] mt-0.5">خرید سرویس</span>
-            </button>
+        <!-- Tab 3: سرویس‌های من -->
+        <button onclick="switchTab('services')" id="nav-btn-services" class="flex-1 py-1.5 flex flex-col items-center justify-center gap-1 text-muted hover:text-brand-500 transition active:scale-95">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <span class="text-[10px] font-bold">سرویس‌های من</span>
+        </button>
 
-            <!-- 3. سرویس‌های من (3rd from Right) -->
-            <button onclick="switchTab('services')" id="nav-services" class="nav-btn flex flex-col items-center justify-center py-1.5 rounded-2xl text-slate-400 transition">
-                <span class="text-lg">🔑</span>
-                <span class="text-[10px] mt-0.5 font-medium">سرویس‌ها</span>
-            </button>
+        <!-- Tab 4: کیف پول (Leftmost) -->
+        <button onclick="switchTab('wallet')" id="nav-btn-wallet" class="flex-1 py-1.5 flex flex-col items-center justify-center gap-1 text-muted hover:text-brand-500 transition active:scale-95">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+            <span class="text-[10px] font-bold">کیف پول</span>
+        </button>
 
-            <!-- 4. کیف پول (4th from Right / Leftmost) -->
-            <button onclick="switchTab('wallet')" id="nav-wallet" class="nav-btn flex flex-col items-center justify-center py-1.5 rounded-2xl text-slate-400 transition">
-                <span class="text-lg">💳</span>
-                <span class="text-[10px] mt-0.5 font-medium">کیف پول</span>
-            </button>
-
-        </div>
     </nav>
 
-    <!-- QR Code & Config Modal -->
-    <div id="qrModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full space-y-4 text-center">
-            <h3 class="font-bold text-white text-sm" id="qrModalTitle">بارکد اتصال مستقیم</h3>
-            <div id="qrcode-box" class="bg-white p-3 rounded-2xl inline-block mx-auto"></div>
-            <p class="text-[11px] text-slate-400">با دوربین نرم‌افزار v2rayNG یا WireGuard اسکن کنید</p>
-            <button onclick="closeQrModal()" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold">بستن</button>
+
+    <!-- ============================================================== -->
+    <!-- CHECKOUT MODAL                                                 -->
+    <!-- ============================================================== -->
+    <div id="checkoutModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="app-card rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 space-y-4 animate-in slide-in-from-bottom duration-200">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <h3 class="font-bold text-sm" id="checkout-title">تایید نهایی و پرداخت سفارش</h3>
+                <button onclick="closeCheckoutModal()" class="w-7 h-7 rounded-full bg-subtle flex items-center justify-center text-muted hover:text-black dark:hover:text-white">✕</button>
+            </div>
+
+            <!-- Order Summary Details -->
+            <div class="app-card-solid rounded-2xl p-4 space-y-2 text-xs">
+                <div class="flex justify-between">
+                    <span class="text-muted">سرور انتخابی:</span>
+                    <span class="font-bold" id="checkout-server-name">-</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-muted">پلن / دوره:</span>
+                    <span class="font-bold" id="checkout-plan-name">-</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-muted">حجم و زمان:</span>
+                    <span class="font-bold font-mono" id="checkout-traffic-days">-</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-muted">محدودیت کاربر (IP / HWID):</span>
+                    <span class="font-bold text-brand-500" id="checkout-limits">-</span>
+                </div>
+                <div class="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-between items-baseline">
+                    <span class="font-bold text-muted">مبلغ کل قابل پرداخت:</span>
+                    <div class="flex items-baseline gap-1">
+                        <span class="text-lg font-black font-mono text-emerald-500" id="checkout-price">-</span>
+                        <span class="text-[10px] text-muted">تومان</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Method Choice -->
+            <div class="space-y-2">
+                <label class="text-xs text-muted font-medium">روش پرداخت:</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button type="button" onclick="setCheckoutPaymentMethod('wallet')" id="btn-pay-method-wallet" class="p-3 rounded-2xl border-2 border-brand-500 bg-brand-500/10 text-brand-500 text-xs font-bold flex flex-col items-center gap-1">
+                        <span>⚡ پرداخت آنی با کیف پول</span>
+                        <span class="text-[10px] font-normal opacity-80" id="checkout-wallet-balance-note">موجودی: 0 تومان</span>
+                    </button>
+                    <button type="button" onclick="setCheckoutPaymentMethod('card')" id="btn-pay-method-card" class="p-3 rounded-2xl border border-slate-200 dark:border-slate-800 text-muted text-xs font-medium flex flex-col items-center gap-1">
+                        <span>💳 کارت به کارت</span>
+                        <span class="text-[10px] font-normal opacity-80">ارسال تصویر فیش</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Card To Card Extra Inputs (Only when method is 'card') -->
+            <div id="checkout-card-extra" class="space-y-3 pt-2 hidden">
+                <div class="app-card-solid rounded-xl p-3 text-xs flex items-center justify-between">
+                    <div>
+                        <div class="text-[10px] text-muted" id="checkout-bank-holder">بانک ملی - مدیریت سرور</div>
+                        <div class="font-mono font-bold mt-0.5" id="checkout-card-num">6037-9974-1234-5678</div>
+                    </div>
+                    <button type="button" onclick="copyCardNumber()" class="px-2.5 py-1 rounded-lg bg-brand-500 text-white text-[11px]">کپی</button>
+                </div>
+                <div>
+                    <label class="block text-[11px] text-muted mb-1">تصویر رسید یا کد پیگیری:</label>
+                    <input type="file" id="checkout-receipt-file" accept="image/*" class="app-input w-full rounded-xl p-1.5 text-xs file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-brand-500 file:text-white">
+                    <input type="text" id="checkout-receipt-text" placeholder="یا متن پیگیری تراکنش" class="app-input w-full rounded-xl px-3 py-1.5 text-xs mt-1.5">
+                </div>
+            </div>
+
+            <div class="pt-2">
+                <button type="button" id="btn-confirm-checkout" onclick="confirmOrder()" class="w-full py-3 rounded-2xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/25 active:scale-95 transition">
+                    تایید و ثبت نهایی سفارش
+                </button>
+            </div>
         </div>
     </div>
 
-    <!-- JavaScript Application Logic -->
+
+    <!-- ============================================================== -->
+    <!-- QR CODE & WIREGUARD CONF MODAL                                 -->
+    <!-- ============================================================== -->
+    <div id="qrModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="app-card rounded-3xl w-full max-w-sm p-5 space-y-4 text-center">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <h3 class="font-bold text-sm" id="qr-modal-title">اتصال سریع با کد QR</h3>
+                <button onclick="closeQrModal()" class="w-7 h-7 rounded-full bg-subtle flex items-center justify-center text-muted hover:text-black dark:hover:text-white">✕</button>
+            </div>
+
+            <!-- QR Container -->
+            <div class="p-4 bg-white rounded-2xl inline-block mx-auto shadow-inner">
+                <div id="qrcode-box" class="flex items-center justify-center"></div>
+            </div>
+
+            <p class="text-xs text-muted leading-relaxed" id="qr-modal-desc">
+                کد بالا را با نرم‌افزار v2rayNG یا Streisand یا Hiddify اسکن کنید.
+            </p>
+
+            <div class="flex flex-col gap-2 pt-2">
+                <button type="button" id="btn-copy-from-modal" class="w-full py-2.5 rounded-xl bg-brand-600 text-white text-xs font-semibold hover:bg-brand-500 transition">
+                    کپی لینک اتصال 📋
+                </button>
+                <button type="button" id="btn-download-conf-modal" class="w-full py-2.5 rounded-xl bg-purple-600 text-white text-xs font-semibold hover:bg-purple-500 transition hidden">
+                    📥 دانلود فایل کانفیگ وایرگارد (.conf)
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ============================================================== -->
+    <!-- SUPPORT MODAL                                                  -->
+    <!-- ============================================================== -->
+    <div id="supportModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="app-card rounded-3xl w-full max-w-sm p-5 space-y-4 text-center">
+            <div class="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto text-2xl">
+                📞
+            </div>
+            <h3 class="font-bold text-sm">ارتباط با پشتیبانی تلگرام</h3>
+            <p class="text-xs text-muted leading-relaxed" id="support-modal-text">
+                در صورت بروز هرگونه سوال یا مشکل در اتصال، کارشناسان ما آماده پاسخگویی هستند.
+            </p>
+            <div class="pt-2 flex flex-col gap-2">
+                <a id="btn-open-support-tg" href="#" target="_blank" class="w-full py-2.5 rounded-xl bg-brand-600 text-white text-xs font-semibold hover:bg-brand-500 transition">
+                    ارسال پیام به پشتیبان در تلگرام
+                </a>
+                <button type="button" onclick="closeSupportModal()" class="w-full py-2 rounded-xl bg-subtle text-muted text-xs hover:text-black dark:hover:text-white">
+                    بستن
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ============================================================== -->
+    <!-- TOAST NOTIFICATION CONTAINER                                   -->
+    <!-- ============================================================== -->
+    <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl text-xs font-bold shadow-2xl flex items-center gap-2 transition-all duration-300 pointer-events-none opacity-0 -translate-y-4">
+        <span id="toast-icon">ℹ️</span>
+        <span id="toast-text">پیام سیستم</span>
+    </div>
+
+
+    <!-- ============================================================== -->
+    <!-- JAVASCRIPT APP LOGIC                                           -->
+    <!-- ============================================================== -->
     <script>
-    const tg = window.Telegram?.WebApp;
-    if (tg) {
-        tg.ready();
-        tg.expand();
-    }
+        // State variables
+        let tg = window.Telegram?.WebApp;
+        let currentUser = null;
+        let appData = { panels: [], plans: [], cards: [], services: [] };
+        let selectedPanel = null;
+        let selectedCategory = null;
+        let selectedPlan = null;
+        let planMode = 'ready'; // 'ready' or 'custom'
+        let checkoutPayMethod = 'wallet';
+        let isCustomCheckout = false;
 
-    let appData = {
-        user: null,
-        panels: [],
-        plans: [],
-        cards: [],
-        services: [],
-    };
-
-    let shopState = {
-        step: 1,
-        selectedPanel: null,
-        selectedCategory: null,
-        planMode: 'ready', // 'ready' or 'custom'
-        selectedPlan: null,
-        customTrafficGb: 30,
-        customDays: 30,
-        customPrice: 0,
-        isCustom: false,
-    };
-
-    // Initialize on load
-    document.addEventListener('DOMContentLoaded', () => {
-        loadAppData();
-        // Default to Shop tab
-        switchTab('shop');
-    });
-
-    function getTelegramUser() {
-        if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
-            return tg.initDataUnsafe.user;
+        // Initialize Telegram WebApp
+        if (tg) {
+            tg.ready();
+            tg.expand();
+            // Match telegram theme if not manually set
+            const savedTheme = localStorage.getItem('vpn_miniapp_theme');
+            if (savedTheme) {
+                setTheme(savedTheme);
+            } else if (tg.colorScheme === 'light') {
+                setTheme('light');
+            } else {
+                setTheme('dark');
+            }
         }
-        return {
-            id: 123456789,
-            first_name: 'کاربر آزمایشی',
-            username: 'demo_user'
-        };
-    }
 
-    function loadAppData(silent = false) {
-        const u = getTelegramUser();
-        fetch('/api/miniapp/data?telegram_id=' + u.id)
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) {
-                    appData = res;
-                    renderUserProfile();
-                    renderShopPanels();
-                    renderServices();
-                    renderWallet();
+        // Theme management
+        function toggleTheme() {
+            haptic('impact');
+            const isDark = document.documentElement.classList.contains('theme-dark');
+            const newTheme = isDark ? 'light' : 'dark';
+            setTheme(newTheme);
+            localStorage.setItem('vpn_miniapp_theme', newTheme);
+        }
+
+        function setTheme(theme) {
+            if (theme === 'light') {
+                document.documentElement.classList.remove('theme-dark');
+                document.documentElement.classList.add('theme-light');
+                document.getElementById('theme-icon').innerText = '☀️';
+            } else {
+                document.documentElement.classList.remove('theme-light');
+                document.documentElement.classList.add('theme-dark');
+                document.getElementById('theme-icon').innerText = '🌙';
+            }
+        }
+
+        function haptic(type = 'impact') {
+            try {
+                if (tg && tg.HapticFeedback) {
+                    if (type === 'impact') tg.HapticFeedback.impactOccurred('medium');
+                    else if (type === 'success') tg.HapticFeedback.notificationOccurred('success');
+                    else if (type === 'error') tg.HapticFeedback.notificationOccurred('error');
                 }
-            })
-            .catch(err => {
-                console.error('Data load error:', err);
+            } catch (e) {}
+        }
+
+        function showToast(message, type = 'info') {
+            haptic(type === 'error' ? 'error' : 'success');
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toast-icon');
+            const text = document.getElementById('toast-text');
+
+            text.innerText = message;
+            if (type === 'success') {
+                icon.innerText = '✅';
+                toast.className = 'fixed top-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl text-xs font-bold shadow-2xl flex items-center gap-2 transition-all duration-300 pointer-events-none bg-emerald-600 text-white opacity-100 translate-y-0';
+            } else if (type === 'error') {
+                icon.innerText = '⚠️';
+                toast.className = 'fixed top-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl text-xs font-bold shadow-2xl flex items-center gap-2 transition-all duration-300 pointer-events-none bg-rose-600 text-white opacity-100 translate-y-0';
+            } else {
+                icon.innerText = 'ℹ️';
+                toast.className = 'fixed top-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl text-xs font-bold shadow-2xl flex items-center gap-2 transition-all duration-300 pointer-events-none bg-indigo-600 text-white opacity-100 translate-y-0';
+            }
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', '-translate-y-4');
+                toast.classList.remove('opacity-100', 'translate-y-0');
+            }, 3000);
+        }
+
+        function copyText(str, msg = 'کپی شد') {
+            if (!str) return;
+            navigator.clipboard.writeText(str).then(() => {
+                showToast(msg, 'success');
+            }).catch(() => {
+                showToast(msg, 'success');
             });
-    }
+        }
 
-    // Switch Navigation Tabs
-    function switchTab(tabName) {
-        const tabs = ['profile', 'shop', 'services', 'wallet'];
-        tabs.forEach(t => {
-            const el = document.getElementById('tab-' + t);
-            const navBtn = document.getElementById('nav-' + t);
-            if (t === tabName) {
-                el.classList.remove('hidden');
-                navBtn.classList.remove('text-slate-400');
-                navBtn.classList.add('text-blue-500', 'font-bold');
-            } else {
-                el.classList.add('hidden');
-                navBtn.classList.remove('text-blue-500', 'font-bold');
-                navBtn.classList.add('text-slate-400');
+        // --- NAVIGATION TABS ---
+        function switchTab(tab) {
+            haptic('impact');
+            const tabs = ['profile', 'shop', 'services', 'wallet'];
+            tabs.forEach(t => {
+                const el = document.getElementById('tab-' + t);
+                const btn = document.getElementById('nav-btn-' + t);
+                if (t === tab) {
+                    el.classList.remove('hidden');
+                    btn.classList.add('text-brand-500');
+                    btn.classList.remove('text-muted');
+                } else {
+                    el.classList.add('hidden');
+                    btn.classList.remove('text-brand-500');
+                    btn.classList.add('text-muted');
+                }
+            });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // --- LOAD DATA FROM API ---
+        async function loadAppData() {
+            let tgUser = tg?.initDataUnsafe?.user;
+            let tgId = tgUser?.id || '';
+
+            try {
+                const res = await fetch('/api/miniapp/data?telegram_id=' + tgId);
+                const data = await res.json();
+
+                if (data.success) {
+                    appData = data;
+                    currentUser = data.user;
+
+                    // Header Info
+                    if (currentUser) {
+                        document.getElementById('header-user-text').innerText = (currentUser.first_name || 'کاربر') + ' خوش آمدید';
+                        document.getElementById('header-balance').innerText = Number(currentUser.balance).toLocaleString();
+                        document.getElementById('profile-name').innerText = currentUser.first_name || 'کاربر گرامی';
+                        document.getElementById('profile-username').innerText = currentUser.username ? ('@' + currentUser.username) : '@user';
+                        document.getElementById('profile-tgid').innerText = 'ID: ' + currentUser.telegram_id;
+                        document.getElementById('profile-balance').innerText = Number(currentUser.balance).toLocaleString();
+                        document.getElementById('wallet-balance-val').innerText = Number(currentUser.balance).toLocaleString();
+                        document.getElementById('checkout-wallet-balance-note').innerText = 'موجودی: ' + Number(currentUser.balance).toLocaleString() + ' تومان';
+                        
+                        if (currentUser.created_at) {
+                            document.getElementById('profile-joined').innerText = currentUser.created_at.split(' ')[0];
+                        }
+                    } else if (tgUser) {
+                        document.getElementById('header-user-text').innerText = (tgUser.first_name || 'کاربر') + ' خوش آمدید';
+                        document.getElementById('profile-name').innerText = tgUser.first_name || 'کاربر گرامی';
+                        document.getElementById('profile-username').innerText = tgUser.username ? ('@' + tgUser.username) : '@user';
+                        document.getElementById('profile-tgid').innerText = 'ID: ' + tgUser.id;
+                    }
+
+                    // Active Services count
+                    document.getElementById('profile-active-services').innerText = data.services?.length || 0;
+
+                    // Card Info
+                    if (data.cards && data.cards.length > 0) {
+                        const activeCard = data.cards[0];
+                        document.getElementById('card-bank-name').innerText = activeCard.bank_name || 'بانک عضو شتاب';
+                        document.getElementById('card-holder-name').innerText = activeCard.holder_name || 'مدیریت سرور';
+                        document.getElementById('card-number-val').innerText = formatCardNumber(activeCard.card_number);
+                        document.getElementById('checkout-bank-holder').innerText = (activeCard.bank_name || '') + ' - ' + (activeCard.holder_name || '');
+                        document.getElementById('checkout-card-num').innerText = formatCardNumber(activeCard.card_number);
+                    }
+
+                    // Render Servers
+                    renderServers(data.panels || []);
+
+                    // Render Services
+                    renderServices(data.services || []);
+                }
+            } catch (err) {
+                console.error("Data load failed", err);
             }
-        });
-    }
-
-    // --- Tab 1: Render Profile ---
-    function renderUserProfile() {
-        const u = appData.user || getTelegramUser();
-        const bal = u.balance || 0;
-        const balFormatted = Number(bal).toLocaleString('fa-IR');
-
-        document.getElementById('header-user-text').innerText = u.first_name || 'کاربر';
-        document.getElementById('header-balance').innerText = balFormatted;
-
-        document.getElementById('profile-name').innerText = u.first_name || 'کاربر';
-        document.getElementById('profile-username').innerText = u.username ? '@' + u.username : '-';
-        document.getElementById('profile-tgid').innerText = 'ID: ' + (u.telegram_id || u.id);
-        document.getElementById('profile-balance').innerText = balFormatted;
-        document.getElementById('profile-active-services').innerText = (appData.services || []).length;
-        document.getElementById('profile-reg-date').innerText = (u.created_at || '').split(' ')[0] || '-';
-    }
-
-    // --- Tab 2: Shop Wizard Steps ---
-    function renderShopPanels() {
-        const container = document.getElementById('panels-grid');
-        const panels = appData.panels || [];
-
-        if (panels.length === 0) {
-            container.innerHTML = '<div class="p-6 text-center text-xs text-slate-500 col-span-2">در حال حاضر سرور فعالی ثبت نشده است.</div>';
-            return;
         }
 
-        container.innerHTML = panels.map(p => `
-            <div onclick="selectShopPanel(${p.id})" class="p-4 rounded-2xl bg-slate-900 border border-slate-800 hover:border-blue-500 cursor-pointer transition space-y-2 group">
-                <div class="flex items-center justify-between">
-                    <span class="text-xl">🌐</span>
-                    <span class="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">آنلاین</span>
-                </div>
-                <div class="font-bold text-xs text-white group-hover:text-blue-400 transition">${escapeHtml(p.name)}</div>
-                <div class="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800/60">
-                    <span>${p.custom_service_enabled ? '✨ سرویس دلخواه فعال' : '📋 پلن‌های متنوع'}</span>
-                    <span class="text-blue-400">انتخاب سرور ←</span>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    function selectShopPanel(panelId) {
-        const panel = appData.panels.find(p => p.id === panelId);
-        if (!panel) return;
-
-        shopState.selectedPanel = panel;
-        document.getElementById('selected-server-name').innerText = panel.name;
-
-        // Render categories for this panel
-        const catContainer = document.getElementById('categories-container');
-        const categories = panel.categories || ['یک ماهه', 'دو ماهه', 'سه ماهه', 'نامحدود'];
-
-        catContainer.innerHTML = categories.map((c, idx) => `
-            <button type="button" onclick="selectShopCategory('${escapeHtml(c)}')" class="px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-blue-500 text-xs font-bold text-slate-300 hover:text-white transition">
-                📦 ${escapeHtml(c)}
-            </button>
-        `).join('');
-
-        setShopStep(2);
-    }
-
-    function selectShopCategory(catName) {
-        shopState.selectedCategory = catName;
-
-        const panel = shopState.selectedPanel;
-        const customSwitch = document.getElementById('custom-switch-container');
-
-        // Check if custom service is enabled for this panel
-        if (panel && panel.custom_service_enabled) {
-            customSwitch.classList.remove('hidden');
-        } else {
-            customSwitch.classList.add('hidden');
+        function formatCardNumber(num) {
+            if (!num) return '';
+            const cleaned = num.replace(/\D/g, '');
+            return cleaned.match(/.{1,4}/g)?.join('-') || num;
         }
 
-        renderReadyPlans();
-        initCustomSliders();
-        setPlanMode('ready');
-        setShopStep(3);
-    }
-
-    function setPlanMode(mode) {
-        shopState.planMode = mode;
-        const btnReady = document.getElementById('btn-mode-ready');
-        const btnCustom = document.getElementById('btn-mode-custom');
-        const readyContainer = document.getElementById('ready-plans-container');
-        const customContainer = document.getElementById('custom-builder-container');
-
-        if (mode === 'ready') {
-            btnReady.className = 'py-2.5 rounded-xl font-bold transition bg-blue-600 text-white shadow-md';
-            btnCustom.className = 'py-2.5 rounded-xl font-bold transition text-slate-400 hover:text-white';
-            readyContainer.classList.remove('hidden');
-            customContainer.classList.add('hidden');
-        } else {
-            btnCustom.className = 'py-2.5 rounded-xl font-bold transition bg-emerald-600 text-white shadow-md';
-            btnReady.className = 'py-2.5 rounded-xl font-bold transition text-slate-400 hover:text-white';
-            readyContainer.classList.add('hidden');
-            customContainer.classList.remove('hidden');
-            calculateCustomPrice();
-        }
-    }
-
-    function renderReadyPlans() {
-        const container = document.getElementById('ready-plans-container');
-        const panel = shopState.selectedPanel;
-        const cat = shopState.selectedCategory;
-
-        // Filter plans by panel_id (0 or matching) and category
-        const allPlans = appData.plans || [];
-        let filtered = allPlans.filter(p => {
-            const matchPanel = (p.panel_id == 0 || p.panel_id == panel.id);
-            const matchCat = (!p.category || p.category == cat || cat == 'همه');
-            return matchPanel && matchCat;
-        });
-
-        if (filtered.length === 0) {
-            // Show any plans for this panel
-            filtered = allPlans.filter(p => p.panel_id == 0 || p.panel_id == panel.id);
+        function copyCardNumber() {
+            const raw = document.getElementById('card-number-val').innerText.replace(/-/g, '');
+            copyText(raw, 'شماره کارت جهت واریز کپی شد 📋');
         }
 
-        if (filtered.length === 0) {
-            container.innerHTML = '<div class="p-6 text-center text-xs text-slate-500">هیچ پلن آماده‌ای برای این دسته‌بندی یافت نشد. می‌توانید از تب «ساخت سرویس دلخواه» استفاده کنید.</div>';
-            return;
-        }
+        // --- RENDER SERVERS (STEP 1) ---
+        function renderServers(panels) {
+            const container = document.getElementById('servers-container');
+            document.getElementById('server-count-badge').innerText = panels.length + ' سرور فعال';
+            container.innerHTML = '';
 
-        container.innerHTML = filtered.map(pl => `
-            <div class="p-4 rounded-2xl bg-slate-900 border border-slate-800 hover:border-blue-500/60 transition space-y-3">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h4 class="font-bold text-xs text-white">${escapeHtml(pl.name)}</h4>
-                        <p class="text-[10px] text-slate-400 mt-0.5">${escapeHtml(pl.description || '')}</p>
-                    </div>
-                    <div class="text-left font-mono">
-                        <div class="text-sm font-bold text-amber-400">${Number(pl.price).toLocaleString('fa-IR')}</div>
-                        <div class="text-[9px] text-slate-400 font-sans">تومان</div>
-                    </div>
-                </div>
-
-                <div class="flex items-center justify-between text-[11px] text-slate-300 pt-2 border-t border-slate-800/80">
-                    <span class="flex items-center gap-1">📊 ${pl.traffic_gb} GB</span>
-                    <span class="flex items-center gap-1">⏳ ${pl.days} روز</span>
-                    <span class="flex items-center gap-1">👥 ${pl.ip_limit ? pl.ip_limit + ' کاربر' : 'نامحدود'}</span>
-                </div>
-
-                <button onclick="startCheckoutReady(${pl.id})" class="w-full py-2.5 rounded-xl font-bold text-xs btn-custom-primary transition shadow-md">
-                    خرید این پلن
-                </button>
-            </div>
-        `).join('');
-    }
-
-    function initCustomSliders() {
-        const panel = shopState.selectedPanel;
-        if (!panel) return;
-
-        const volSlider = document.getElementById('custom-vol-slider');
-        const daysSlider = document.getElementById('custom-days-slider');
-
-        volSlider.min = panel.min_gb || 5;
-        volSlider.max = panel.max_gb || 500;
-        volSlider.value = Math.max(panel.min_gb || 5, Math.min(30, panel.max_gb || 500));
-
-        daysSlider.min = panel.min_days || 1;
-        daysSlider.max = panel.max_days || 365;
-        daysSlider.value = Math.max(panel.min_days || 1, Math.min(30, panel.max_days || 365));
-
-        document.getElementById('custom-min-gb').innerText = volSlider.min + ' GB';
-        document.getElementById('custom-max-gb').innerText = volSlider.max + ' GB';
-        document.getElementById('custom-min-days').innerText = daysSlider.min + ' روز';
-        document.getElementById('custom-max-days').innerText = daysSlider.max + ' روز';
-
-        calculateCustomPrice();
-    }
-
-    function calculateCustomPrice() {
-        const panel = shopState.selectedPanel;
-        if (!panel) return;
-
-        const vol = parseInt(document.getElementById('custom-vol-slider').value) || 10;
-        const days = parseInt(document.getElementById('custom-days-slider').value) || 30;
-
-        document.getElementById('custom-vol-val').innerText = vol;
-        document.getElementById('custom-days-val').innerText = days;
-
-        const pricePerGb = panel.price_per_gb || 4000;
-        const pricePerDay = panel.price_per_day || 1000;
-        const total = (vol * pricePerGb) + (days * pricePerDay);
-
-        shopState.customTrafficGb = vol;
-        shopState.customDays = days;
-        shopState.customPrice = total;
-
-        document.getElementById('custom-price-val').innerText = Number(total).toLocaleString('fa-IR');
-    }
-
-    function startCheckoutReady(planId) {
-        const plan = appData.plans.find(p => p.id === planId);
-        if (!plan) return;
-
-        shopState.isCustom = false;
-        shopState.selectedPlan = plan;
-
-        renderCheckoutView(plan.name, plan.price, plan.traffic_gb + ' GB', plan.days + ' روز');
-        setShopStep(4);
-    }
-
-    function startCheckoutCustom() {
-        shopState.isCustom = true;
-        shopState.selectedPlan = null;
-
-        const title = `سرویس دلخواه (${shopState.customTrafficGb}GB - ${shopState.customDays} روز)`;
-        renderCheckoutView(title, shopState.customPrice, shopState.customTrafficGb + ' GB', shopState.customDays + ' روز');
-        setShopStep(4);
-    }
-
-    function renderCheckoutView(title, price, volStr, daysStr) {
-        document.getElementById('checkout-title').innerText = title;
-        document.getElementById('checkout-server').innerText = shopState.selectedPanel.name;
-        document.getElementById('checkout-vol').innerText = volStr;
-        document.getElementById('checkout-days').innerText = daysStr;
-        document.getElementById('checkout-price').innerText = Number(price).toLocaleString('fa-IR') + ' تومان';
-
-        const userBal = (appData.user && appData.user.balance) || 0;
-        document.getElementById('checkout-user-balance').innerText = Number(userBal).toLocaleString('fa-IR');
-
-        // Render bank cards
-        const cards = appData.cards || [];
-        const cardsList = document.getElementById('checkout-cards-list');
-        cardsList.innerHTML = cards.map(c => `
-            <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
-                <div>
-                    <div class="text-[11px] font-bold text-white">${escapeHtml(c.holder_name)} (${escapeHtml(c.bank_name)})</div>
-                    <div class="text-xs text-amber-400 font-mono mt-0.5">${escapeHtml(c.card_number)}</div>
-                </div>
-                <button type="button" onclick="copyText('${c.card_number}')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300">
-                    کپی کارت
-                </button>
-            </div>
-        `).join('');
-    }
-
-    function togglePayMethod(method) {
-        const cardFields = document.getElementById('card-fields-container');
-        if (method === 'card') {
-            cardFields.classList.remove('hidden');
-        } else {
-            cardFields.classList.add('hidden');
-        }
-    }
-
-    function executeFinalPayment() {
-        const u = getTelegramUser();
-        const method = document.querySelector('input[name="pay_method"]:checked')?.value || 'wallet';
-        const receiptText = document.getElementById('checkout-receipt-text')?.value.trim() || '';
-
-        const payload = {
-            telegram_id: u.id,
-            first_name: u.first_name,
-            username: u.username,
-            payment_method: method,
-            panel_id: shopState.selectedPanel.id,
-            is_custom: shopState.isCustom,
-            plan_id: shopState.selectedPlan ? shopState.selectedPlan.id : 0,
-            custom_traffic_gb: shopState.customTrafficGb,
-            custom_days: shopState.customDays,
-            receipt_text: receiptText,
-        };
-
-        const btn = document.getElementById('btn-final-pay');
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '⏳ در حال ثبت و پردازش...';
-        btn.disabled = true;
-
-        fetch('/api/miniapp/order', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        })
-        .then(r => r.json())
-        .then(res => {
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-
-            if (res.success) {
-                alert('🎉 ' + res.message);
-                loadAppData();
-                switchTab('services');
-                setShopStep(1);
-            } else {
-                alert('❌ ' + (res.error || 'خطا در ثبت سفارش'));
+            if (panels.length === 0) {
+                container.innerHTML = '<div class="col-span-2 p-6 text-center text-xs text-muted app-card rounded-2xl">در حال حاضر سرور فعالی موجود نیست.</div>';
+                return;
             }
-        })
-        .catch(err => {
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-            alert('خطای اتصال به سرور: ' + err);
-        });
-    }
 
-    function setShopStep(step) {
-        shopState.step = step;
-        const steps = [1, 2, 3, 4];
-        steps.forEach(s => {
-            const el = document.getElementById('shop-step-' + s);
-            if (s === step) el.classList.remove('hidden');
-            else el.classList.add('hidden');
-        });
+            panels.forEach((p, idx) => {
+                const isSelected = selectedPanel?.id === p.id || (!selectedPanel && idx === 0);
+                if (!selectedPanel && idx === 0) selectedPanel = p;
 
-        const badge = document.getElementById('step-badge');
-        const title = document.getElementById('step-title');
-        const backBtn = document.getElementById('shop-back-btn');
+                const card = document.createElement('div');
+                card.className = `app-card rounded-2xl p-3.5 cursor-pointer transition-all hover:scale-[1.02] active:scale-95 border-2 ${isSelected ? 'border-brand-500 ring-2 ring-brand-500/20' : 'border-transparent'}`;
+                card.onclick = () => selectServer(p);
 
-        badge.innerText = step;
-        if (step === 1) {
-            title.innerText = 'انتخاب سرور (لوکیشن)';
-            backBtn.classList.add('hidden');
-        } else if (step === 2) {
-            title.innerText = 'انتخاب دسته‌بندی';
-            backBtn.classList.remove('hidden');
-        } else if (step === 3) {
-            title.innerText = 'انتخاب یا ساخت پلن';
-            backBtn.classList.remove('hidden');
-        } else if (step === 4) {
-            title.innerText = 'تایید و پرداخت';
-            backBtn.classList.remove('hidden');
-        }
-    }
+                // Detect flag / icon
+                let flag = '🌐';
+                const lower = p.name.toLowerCase();
+                if (lower.includes('آلمان') || lower.includes('germany') || lower.includes('de')) flag = '🇩🇪';
+                else if (lower.includes('هلند') || lower.includes('netherland') || lower.includes('nl')) flag = '🇳🇱';
+                else if (lower.includes('فرانسه') || lower.includes('france') || lower.includes('fr')) flag = '🇫🇷';
+                else if (lower.includes('فنلاند') || lower.includes('finland') || lower.includes('fi')) flag = '🇫🇮';
+                else if (lower.includes('انگلیس') || lower.includes('uk') || lower.includes('london')) flag = '🇬🇧';
+                else if (lower.includes('آمریکا') || lower.includes('usa') || lower.includes('us')) flag = '🇺🇸';
+                else if (lower.includes('ترکیه') || lower.includes('turkey') || lower.includes('tr')) flag = '🇹🇷';
 
-    function prevShopStep() {
-        if (shopState.step > 1) {
-            setShopStep(shopState.step - 1);
-        }
-    }
-
-    // --- Tab 3: Render Services ---
-    function renderServices() {
-        const container = document.getElementById('services-container');
-        const services = appData.services || [];
-
-        if (services.length === 0) {
-            container.innerHTML = `
-                <div class="p-8 text-center bg-slate-900 rounded-3xl border border-slate-800 space-y-3">
-                    <span class="text-3xl">🔑</span>
-                    <div class="text-xs font-bold text-white">شما هنوز هیچ سرویس فعالی ندارید.</div>
-                    <p class="text-[10px] text-slate-400">جهت خرید و فعالسازی سریع، از تب خرید سرویس استفاده کنید.</p>
-                    <button onclick="switchTab('shop')" class="px-5 py-2 rounded-xl text-xs font-bold btn-custom-primary">
-                        خرید اشتراک جدید
-                    </button>
-                </div>
-            `;
-            return;
-        }
-
-        container.innerHTML = services.map(s => {
-            const isConfWireguard = Boolean(s.wireguard_conf);
-            return `
-                <div class="p-5 rounded-3xl bg-slate-900 border border-slate-800 space-y-3 shadow-lg">
-                    <div class="flex items-center justify-between pb-2 border-b border-slate-800">
-                        <div class="flex items-center gap-2">
-                            <span class="w-2.5 h-2.5 rounded-full ${s.is_active ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}"></span>
-                            <h4 class="font-bold text-xs text-white">اشتراک #${s.id} (${escapeHtml(s.panel_name)})</h4>
+                card.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="text-2xl">${flag}</span>
+                        <span class="flex items-center gap-1 text-[10px] text-emerald-500 font-mono">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                            <span>آنلاین</span>
+                        </span>
+                    </div>
+                    <div class="mt-2.5">
+                        <h4 class="font-bold text-xs leading-snug line-clamp-1">${escapeHtml(p.name)}</h4>
+                        <div class="flex items-center gap-1 mt-1 text-[10px] text-muted">
+                            <span>پروتکل:</span>
+                            <span class="font-mono text-brand-500 uppercase">${p.type}</span>
                         </div>
-                        <button onclick="syncSingleService(${s.id})" class="text-[10px] text-blue-400 hover:text-white flex items-center gap-1">
-                            <span>🔄</span> استعلام زنده
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            if (selectedPanel) {
+                renderCategories(selectedPanel);
+            }
+        }
+
+        function selectServer(panel) {
+            haptic('impact');
+            selectedPanel = panel;
+            renderServers(appData.panels || []);
+            renderCategories(panel);
+        }
+
+        // --- RENDER CATEGORIES (STEP 2) ---
+        function renderCategories(panel) {
+            const wrapper = document.getElementById('categories-wrapper');
+            const container = document.getElementById('categories-container');
+            wrapper.classList.remove('hidden');
+            container.innerHTML = '';
+
+            const cats = panel.categories || ['یک ماهه', 'دو ماهه', 'سه ماهه', 'نامحدود'];
+            if (!selectedCategory || !cats.includes(selectedCategory)) {
+                selectedCategory = cats[0] || 'یک ماهه';
+            }
+
+            cats.forEach(c => {
+                const isSelected = selectedCategory === c;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition active:scale-95 ${isSelected ? 'bg-brand-600 text-white shadow-md shadow-indigo-500/20' : 'app-card text-muted hover:text-black dark:hover:text-white'}`;
+                btn.innerText = c;
+                btn.onclick = () => {
+                    haptic('impact');
+                    selectedCategory = c;
+                    renderCategories(panel);
+                };
+                container.appendChild(btn);
+            });
+
+            // Handle Custom Service Toggle Button Visibility
+            const customToggle = document.getElementById('custom-service-toggle-wrap');
+            if (panel.custom_service_enabled) {
+                customToggle.classList.remove('hidden');
+                // Set slider limits
+                document.getElementById('custom-traffic-slider').min = panel.min_gb || 5;
+                document.getElementById('custom-traffic-slider').max = panel.max_gb || 500;
+                document.getElementById('custom-traffic-min').innerText = (panel.min_gb || 5) + ' GB';
+                document.getElementById('custom-traffic-max').innerText = (panel.max_gb || 500) + ' GB';
+
+                document.getElementById('custom-days-slider').min = panel.min_days || 1;
+                document.getElementById('custom-days-slider').max = panel.max_days || 365;
+                document.getElementById('custom-days-min').innerText = (panel.min_days || 1) + ' روز';
+                document.getElementById('custom-days-max').innerText = (panel.max_days || 365) + ' روز';
+
+                updateCustomCalculation();
+            } else {
+                customToggle.classList.add('hidden');
+                setPlanMode('ready');
+            }
+
+            renderPlans();
+        }
+
+        function setPlanMode(mode) {
+            haptic('impact');
+            planMode = mode;
+            const btnReady = document.getElementById('toggle-ready-plans');
+            const btnCustom = document.getElementById('toggle-custom-plan');
+            const readyContainer = document.getElementById('ready-plans-container');
+            const customContainer = document.getElementById('custom-plan-container');
+
+            if (mode === 'custom') {
+                btnCustom.className = 'px-2.5 py-1 rounded-lg font-medium text-[11px] transition bg-brand-500 text-white shadow-sm';
+                btnReady.className = 'px-2.5 py-1 rounded-lg font-medium text-[11px] transition text-muted hover:text-brand-500';
+                readyContainer.classList.add('hidden');
+                customContainer.classList.remove('hidden');
+            } else {
+                btnReady.className = 'px-2.5 py-1 rounded-lg font-medium text-[11px] transition bg-brand-500 text-white shadow-sm';
+                btnCustom.className = 'px-2.5 py-1 rounded-lg font-medium text-[11px] transition text-muted hover:text-brand-500';
+                readyContainer.classList.remove('hidden');
+                customContainer.classList.add('hidden');
+            }
+        }
+
+        function updateCustomCalculation() {
+            if (!selectedPanel) return;
+            const vol = parseInt(document.getElementById('custom-traffic-slider').value);
+            const days = parseInt(document.getElementById('custom-days-slider').value);
+
+            document.getElementById('custom-traffic-val').innerText = vol;
+            document.getElementById('custom-days-val').innerText = days;
+
+            const pricePerGb = selectedPanel.price_per_gb || 4000;
+            const pricePerDay = selectedPanel.price_per_day || 1000;
+            const total = (vol * pricePerGb) + (days * pricePerDay);
+
+            document.getElementById('custom-price-display').innerText = Number(total).toLocaleString();
+        }
+
+        // --- RENDER READY PLANS (STEP 3) ---
+        function renderPlans() {
+            const wrapper = document.getElementById('plans-wrapper');
+            const container = document.getElementById('ready-plans-container');
+            wrapper.classList.remove('hidden');
+            container.innerHTML = '';
+
+            const allPlans = appData.plans || [];
+            // Filter plans matching category or panel
+            const filtered = allPlans.filter(p => {
+                const matchPanel = (p.panel_id == 0 || p.panel_id == selectedPanel?.id);
+                const matchCat = (!p.category || p.category === selectedCategory || selectedCategory === 'همه');
+                return matchPanel && matchCat;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="app-card rounded-2xl p-6 text-center space-y-2">
+                        <div class="text-2xl">📋</div>
+                        <div class="text-xs font-semibold">پلن آماده‌ای در این دسته‌بندی یافت نشد</div>
+                        <p class="text-[11px] text-muted">می‌توانید از بخش «سرویس دلخواه» پلن اختصاصی خود را بسازید.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            filtered.forEach(p => {
+                const card = document.createElement('div');
+                card.className = "app-card rounded-3xl p-4 transition-all hover:scale-[1.01] flex items-center justify-between gap-3";
+
+                const ipLimitText = (p.ip_limit > 0) ? (p.ip_limit + ' کاربر') : 'نامحدود';
+                const hwidLimitText = (p.hwid_limit > 0) ? (p.hwid_limit + ' دستگاه') : 'نامحدود';
+
+                card.innerHTML = `
+                    <div class="space-y-1.5 flex-1">
+                        <div class="flex items-center gap-2">
+                            <h4 class="font-bold text-xs text-brand-600 dark:text-brand-400">${escapeHtml(p.name)}</h4>
+                            <span class="px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-500 text-[10px] font-mono">${p.traffic_gb} GB</span>
+                        </div>
+                        <div class="flex flex-wrap gap-1.5 text-[10px]">
+                            <span class="px-2 py-0.5 rounded-md bg-subtle text-muted">⏳ ${p.days} روز اعتبار</span>
+                            <span class="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-500">🌐 IP: ${ipLimitText}</span>
+                            <span class="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-500">📱 HWID: ${hwidLimitText}</span>
+                        </div>
+                    </div>
+                    <div class="text-left space-y-1">
+                        <div class="text-sm font-black font-mono text-emerald-500">${Number(p.price).toLocaleString()} <span class="text-[9px] font-normal text-muted">تومان</span></div>
+                        <button onclick='openCheckoutModal(${JSON.stringify(p)}, false)' class="px-3.5 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shadow active:scale-95 transition">
+                            خرید ⚡
                         </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+
+        // --- RENDER MY SERVICES (TAB 3) ---
+        function renderServices(services) {
+            const container = document.getElementById('services-container');
+            container.innerHTML = '';
+
+            if (services.length === 0) {
+                container.innerHTML = `
+                    <div class="app-card rounded-3xl p-8 text-center space-y-3">
+                        <div class="w-16 h-16 rounded-2xl bg-indigo-500/10 text-brand-500 flex items-center justify-center mx-auto text-3xl">
+                            🛰️
+                        </div>
+                        <h3 class="font-bold text-sm">هیچ اشتراک فعالی ندارید</h3>
+                        <p class="text-xs text-muted leading-relaxed max-w-xs mx-auto">
+                            شما هنوز سرویسی خریداری نکرده‌اید. با خرید اولین سرویس، کانفیگ اختصاصی شما فوراً اینجا نمایش داده می‌شود.
+                        </p>
+                        <button onclick="switchTab('shop')" class="px-5 py-2.5 rounded-2xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/25 active:scale-95 transition mt-2">
+                            خرید اولین سرویس
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            services.forEach(s => {
+                const card = document.createElement('div');
+                card.className = "app-card rounded-3xl p-4.5 space-y-4";
+
+                const isExpired = s.days_left !== null && s.days_left <= 0;
+                const statusColor = s.is_active && !isExpired ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' : 'text-rose-500 bg-rose-500/10 border-rose-500/20';
+                const statusText = s.is_active && !isExpired ? 'فعال و متصل' : 'منقضی شده';
+
+                const ipLimitText = (s.ip_limit > 0) ? (s.ip_limit + ' کاربر') : 'نامحدود';
+                const hwidLimitText = (s.hwid_limit > 0) ? (s.hwid_limit + ' دستگاه') : 'نامحدود';
+
+                const isWireGuard = !!s.wireguard_conf || (s.config_link && s.config_link.startsWith('wireguard://'));
+
+                card.innerHTML = `
+                    <!-- Header -->
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800/80">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-8 h-8 rounded-xl bg-brand-500/10 text-brand-500 flex items-center justify-center font-bold text-sm">
+                                ⚡
+                            </span>
+                            <div>
+                                <h4 class="font-bold text-xs">${escapeHtml(s.panel_name || 'اشتراک اینترنت آزاد')}</h4>
+                                <div class="flex items-center gap-2 mt-0.5">
+                                    <span class="text-[10px] text-muted">شناسه: #${s.id}</span>
+                                    ${isWireGuard ? '<span class="px-1.5 py-0.2 rounded text-[9px] bg-purple-500/10 text-purple-400 font-bold">WireGuard 🛡️</span>' : ''}
+                                </div>
+                            </div>
+                        </div>
+                        <span class="px-2.5 py-0.5 rounded-full border text-[10px] font-semibold ${statusColor}">
+                            ${statusText}
+                        </span>
                     </div>
 
                     <!-- Usage Progress Bar -->
-                    <div class="space-y-1">
-                        <div class="flex justify-between text-[11px] text-slate-300">
-                            <span>مصرف شده: <b class="font-mono text-white">${s.used_gb} GB</b></span>
-                            <span>کل: <b class="font-mono text-blue-400">${s.traffic_gb} GB</b></span>
+                    <div class="space-y-1.5">
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="text-muted">مصرف ترافیک:</span>
+                            <span class="font-mono font-bold text-[11px]">${s.used_gb} GB / ${s.traffic_gb} GB</span>
                         </div>
-                        <div class="w-full bg-slate-950 rounded-full h-2.5 overflow-hidden border border-slate-800">
-                            <div class="bg-gradient-to-r from-blue-600 to-emerald-500 h-2.5 rounded-full" style="width: ${s.progress_percent}%;"></div>
+                        <div class="w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                            <div class="h-full rounded-full bg-gradient-to-r from-brand-500 to-indigo-500 transition-all duration-500" style="width: ${Math.min(100, s.progress_percent || 0)}%"></div>
                         </div>
-                        <div class="flex justify-between text-[10px] text-slate-500 pt-0.5">
+                        <div class="flex items-center justify-between text-[10px] text-muted font-mono">
                             <span>باقی‌مانده: ${s.remaining_gb} GB</span>
-                            <span>انقضا: ${s.days_left !== null ? s.days_left + ' روز مانده' : (s.expires_at ? s.expires_at.split(' ')[0] : 'نامحدود')}</span>
+                            <span>اعتبار: ${s.days_left !== null ? (s.days_left + ' روز') : 'نامحدود'}</span>
                         </div>
+                    </div>
+
+                    <!-- Limits Pills -->
+                    <div class="flex items-center gap-2 text-[10px]">
+                        <span class="px-2 py-0.5 rounded-lg bg-blue-500/10 text-blue-500 border border-blue-500/20 font-medium">🌐 آی‌پی: ${ipLimitText}</span>
+                        <span class="px-2 py-0.5 rounded-lg bg-purple-500/10 text-purple-500 border border-purple-500/20 font-medium">📱 سخت‌افزار (HWID): ${hwidLimitText}</span>
                     </div>
 
                     <!-- Action Buttons -->
-                    <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800/80">
-                        ${s.sub_url ? `
-                            <button onclick="copyText('${escapeHtml(s.sub_url)}')" class="py-2 px-3 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-slate-300 hover:text-white transition flex items-center justify-center gap-1">
-                                <span>📋</span> کپی سابسکریپشن
-                            </button>
-                        ` : ''}
-
-                        ${s.config_link ? `
-                            <button onclick="copyText('${escapeHtml(s.config_link)}')" class="py-2 px-3 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-slate-300 hover:text-white transition flex items-center justify-center gap-1">
-                                <span>🔗</span> کپی کانفیگ مستقیم
-                            </button>
-                        ` : ''}
-
-                        <button onclick="showQrModal('${escapeHtml(s.sub_url || s.config_link)}', 'اشتراک #${s.id}')" class="py-2 px-3 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-slate-300 hover:text-white transition flex items-center justify-center gap-1">
-                            <span>📱</span> بارکد QR
+                    <div class="grid grid-cols-2 gap-2 pt-1">
+                        <button onclick='copyServiceLink(${JSON.stringify(s)})' class="py-2 px-3 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow transition active:scale-95 flex items-center justify-center gap-1.5">
+                            <span>📋</span>
+                            <span>کپی لینک اتصال</span>
                         </button>
-
-                        ${isConfWireguard ? `
-                            <button onclick="downloadWireguardConf(${s.id})" class="py-2 px-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300 hover:text-white transition flex items-center justify-center gap-1">
-                                <span>📁</span> دانلود فایل (.conf)
-                            </button>
-                        ` : ''}
+                        <button onclick='openQrModal(${JSON.stringify(s)})' class="py-2 px-3 rounded-xl app-card hover:bg-subtle text-xs font-semibold transition active:scale-95 flex items-center justify-center gap-1.5">
+                            <span>📷</span>
+                            <span>مشاهده کد QR</span>
+                        </button>
                     </div>
-                </div>
-            `;
-        }).join('');
-    }
 
-    function syncSingleService(serviceId) {
-        fetch('/api/miniapp/sync-service?id=' + serviceId)
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) {
-                    alert('✅ اطلاعات مصرف اشتراک با سرور همگام‌سازی شد!');
-                    loadAppData();
-                } else {
-                    alert('خطا در استعلام: ' + (res.error || ''));
-                }
+                    ${isWireGuard ? `
+                        <button onclick='downloadWireguardConf(${JSON.stringify(s)})' class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-90 text-white text-xs font-semibold shadow transition active:scale-95 flex items-center justify-center gap-1.5">
+                            <span>📥</span>
+                            <span>دانلود مستقیم فایل کانفیگ وایرگارد (.conf)</span>
+                        </button>
+                    ` : ''}
+                `;
+                container.appendChild(card);
             });
-    }
-
-    function downloadWireguardConf(serviceId) {
-        const s = appData.services.find(item => item.id === serviceId);
-        if (!s || !s.wireguard_conf) {
-            alert('فایل کانفیگ وایرگارد برای این سرویس موجود نیست.');
-            return;
         }
 
-        const blob = new Blob([s.wireguard_conf], { type: 'text/plain;charset=utf-8' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `wireguard_service_${serviceId}.conf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-    }
-
-    // --- Tab 4: Render Wallet ---
-    function renderWallet() {
-        const u = appData.user || {};
-        const bal = u.balance || 0;
-        document.getElementById('wallet-balance-big').innerText = Number(bal).toLocaleString('fa-IR');
-
-        const cards = appData.cards || [];
-        const container = document.getElementById('wallet-cards-container');
-
-        if (cards.length === 0) {
-            container.innerHTML = '<div class="text-xs text-slate-500">شماره کارتی ثبت نشده است.</div>';
-            return;
-        }
-
-        container.innerHTML = cards.map(c => `
-            <div class="p-4 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-950 border border-slate-800 flex items-center justify-between">
-                <div>
-                    <div class="text-xs font-bold text-white">${escapeHtml(c.holder_name)} - ${escapeHtml(c.bank_name)}</div>
-                    <div class="text-sm font-bold text-amber-400 font-mono tracking-widest mt-1">${escapeHtml(c.card_number)}</div>
-                </div>
-                <button onclick="copyText('${c.card_number}')" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-200">
-                    کپی کارت
-                </button>
-            </div>
-        `).join('');
-    }
-
-    function submitTopup() {
-        const u = getTelegramUser();
-        const amount = parseInt(document.getElementById('topup-amount').value) || 0;
-        const receipt = document.getElementById('topup-receipt').value.trim();
-
-        if (amount < 10000) {
-            alert('حداقل مبلغ شارژ ۱۰,۰۰۰ تومان است.');
-            return;
-        }
-        if (!receipt) {
-            alert('لطفاً کد رهگیری یا شماره پیگیری فیش را وارد کنید.');
-            return;
-        }
-
-        fetch('/api/miniapp/topup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                telegram_id: u.id,
-                amount: amount,
-                receipt_text: receipt,
-            })
-        })
-        .then(r => r.json())
-        .then(res => {
-            if (res.success) {
-                alert('✅ ' + res.message);
-                document.getElementById('topup-amount').value = '';
-                document.getElementById('topup-receipt').value = '';
+        function copyServiceLink(service) {
+            const link = service.sub_url || service.config_link;
+            if (link) {
+                copyText(link, 'لینک اتصال اشتراک با موفقیت کپی شد! 📋');
             } else {
-                alert('❌ ' + (res.error || 'خطا در ثبت فیش'));
+                showToast('لینک ارتباطی یافت نشد.', 'error');
             }
-        });
-    }
-
-    // Modal & QR Code
-    function showQrModal(text, title) {
-        if (!text) {
-            alert('لینک کانفیگ موجود نیست.');
-            return;
         }
-        document.getElementById('qrModalTitle').innerText = title || 'بارکد اتصال';
-        const box = document.getElementById('qrcode-box');
-        box.innerHTML = '';
-        new QRCode(box, {
-            text: text,
-            width: 180,
-            height: 180,
-            colorDark: "#000000",
-            colorLight: "#ffffff",
-            correctLevel: QRCode.CorrectLevel.M
-        });
-        document.getElementById('qrModal').classList.remove('hidden');
-        document.getElementById('qrModal').classList.add('flex');
-    }
 
-    function closeQrModal() {
-        document.getElementById('qrModal').classList.add('hidden');
-        document.getElementById('qrModal').classList.remove('flex');
-    }
+        function openQrModal(service) {
+            haptic('impact');
+            const link = service.sub_url || service.config_link || '';
+            if (!link) {
+                showToast('لینک اتصال برای ساخت QR کد موجود نیست.', 'error');
+                return;
+            }
 
-    function copyText(txt) {
-        if (!txt) return;
-        navigator.clipboard.writeText(txt).then(() => {
-            alert('📋 با موفقیت کپی شد!');
-        }).catch(() => {
-            prompt('لینک زیر را کپی کنید:', txt);
-        });
-    }
+            document.getElementById('qr-modal-title').innerText = service.panel_name || 'کد QR اتصال';
+            const qrBox = document.getElementById('qrcode-box');
+            qrBox.innerHTML = '';
 
-    function escapeHtml(str) {
-        if (!str) return '';
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    }
+            new QRCode(qrBox, {
+                text: link,
+                width: 200,
+                height: 200,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.M
+            });
+
+            document.getElementById('btn-copy-from-modal').onclick = () => {
+                copyText(link, 'لینک اتصال کپی شد 📋');
+            };
+
+            const btnConf = document.getElementById('btn-download-conf-modal');
+            if (service.wireguard_conf) {
+                btnConf.classList.remove('hidden');
+                btnConf.onclick = () => downloadWireguardConf(service);
+            } else {
+                btnConf.classList.add('hidden');
+            }
+
+            document.getElementById('qrModal').classList.remove('hidden');
+            document.getElementById('qrModal').classList.add('flex');
+        }
+
+        function closeQrModal() {
+            document.getElementById('qrModal').classList.add('hidden');
+            document.getElementById('qrModal').classList.remove('flex');
+        }
+
+        function downloadWireguardConf(service) {
+            haptic('impact');
+            const confContent = service.wireguard_conf;
+            if (!confContent) {
+                showToast('فایل کانفیگ وایرگارد برای این سرویس تولید نشده است.', 'error');
+                return;
+            }
+
+            const filename = `Wireguard_${service.id}.conf`;
+            const blob = new Blob([confContent], { type: 'text/plain;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('فایل .conf با موفقیت دانلود شد 📥', 'success');
+        }
+
+
+        // --- CHECKOUT & ORDER MODAL ---
+        function openCheckoutModal(plan, isCustom = false) {
+            haptic('impact');
+            isCustomCheckout = isCustom;
+
+            if (isCustom) {
+                const vol = parseInt(document.getElementById('custom-traffic-slider').value);
+                const days = parseInt(document.getElementById('custom-days-slider').value);
+                const pricePerGb = selectedPanel?.price_per_gb || 4000;
+                const pricePerDay = selectedPanel?.price_per_day || 1000;
+                const total = (vol * pricePerGb) + (days * pricePerDay);
+
+                document.getElementById('checkout-server-name').innerText = selectedPanel?.name || 'سرور اختصاصی';
+                document.getElementById('checkout-plan-name').innerText = 'سرویس سفارشی کاربر';
+                document.getElementById('checkout-traffic-days').innerText = `${vol} GB / ${days} روز`;
+                document.getElementById('checkout-limits').innerText = '🌐 IP: 1 / 📱 HWID: نامحدود';
+                document.getElementById('checkout-price').innerText = Number(total).toLocaleString();
+            } else {
+                selectedPlan = plan;
+                const ipText = (plan.ip_limit > 0) ? (plan.ip_limit + ' کاربر') : 'نامحدود';
+                const hwidText = (plan.hwid_limit > 0) ? (plan.hwid_limit + ' دستگاه') : 'نامحدود';
+
+                document.getElementById('checkout-server-name').innerText = selectedPanel?.name || 'سرور اختصاصی';
+                document.getElementById('checkout-plan-name').innerText = plan.name;
+                document.getElementById('checkout-traffic-days').innerText = `${plan.traffic_gb} GB / ${plan.days} روز`;
+                document.getElementById('checkout-limits').innerText = `🌐 IP: ${ipText} / 📱 HWID: ${hwidText}`;
+                document.getElementById('checkout-price').innerText = Number(plan.price).toLocaleString();
+            }
+
+            setCheckoutPaymentMethod('wallet');
+            document.getElementById('checkoutModal').classList.remove('hidden');
+            document.getElementById('checkoutModal').classList.add('flex');
+        }
+
+        function closeCheckoutModal() {
+            document.getElementById('checkoutModal').classList.add('hidden');
+            document.getElementById('checkoutModal').classList.remove('flex');
+        }
+
+        function setCheckoutPaymentMethod(method) {
+            haptic('impact');
+            checkoutPayMethod = method;
+            const btnWallet = document.getElementById('btn-pay-method-wallet');
+            const btnCard = document.getElementById('btn-pay-method-card');
+            const extra = document.getElementById('checkout-card-extra');
+
+            if (method === 'wallet') {
+                btnWallet.className = 'p-3 rounded-2xl border-2 border-brand-500 bg-brand-500/10 text-brand-500 text-xs font-bold flex flex-col items-center gap-1';
+                btnCard.className = 'p-3 rounded-2xl border border-slate-200 dark:border-slate-800 text-muted text-xs font-medium flex flex-col items-center gap-1';
+                extra.classList.add('hidden');
+            } else {
+                btnCard.className = 'p-3 rounded-2xl border-2 border-brand-500 bg-brand-500/10 text-brand-500 text-xs font-bold flex flex-col items-center gap-1';
+                btnWallet.className = 'p-3 rounded-2xl border border-slate-200 dark:border-slate-800 text-muted text-xs font-medium flex flex-col items-center gap-1';
+                extra.classList.remove('hidden');
+            }
+        }
+
+        async function confirmOrder() {
+            haptic('impact');
+            const btn = document.getElementById('btn-confirm-checkout');
+            btn.disabled = true;
+            btn.innerText = 'در حال پردازش سفارش...';
+
+            let tgUser = tg?.initDataUnsafe?.user;
+            let tgId = currentUser?.telegram_id || tgUser?.id;
+
+            if (!tgId) {
+                showToast('شناسه تلگرام یافت نشد. لطفاً از طریق ربات باز کنید.', 'error');
+                btn.disabled = false;
+                btn.innerText = 'تایید و ثبت نهایی سفارش';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('telegram_id', tgId);
+            formData.append('first_name', currentUser?.first_name || tgUser?.first_name || 'کاربر');
+            formData.append('username', currentUser?.username || tgUser?.username || '');
+            formData.append('payment_method', checkoutPayMethod);
+            formData.append('panel_id', selectedPanel?.id || 0);
+
+            if (isCustomCheckout) {
+                formData.append('is_custom', '1');
+                formData.append('custom_traffic_gb', document.getElementById('custom-traffic-slider').value);
+                formData.append('custom_days', document.getElementById('custom-days-slider').value);
+                formData.append('ip_limit', '1');
+                formData.append('hwid_limit', '0');
+            } else {
+                formData.append('plan_id', selectedPlan.id);
+            }
+
+            if (checkoutPayMethod === 'card') {
+                const receiptFile = document.getElementById('checkout-receipt-file').files[0];
+                const receiptText = document.getElementById('checkout-receipt-text').value;
+                if (receiptFile) formData.append('receipt_photo', receiptFile);
+                if (receiptText) formData.append('receipt_text', receiptText);
+            }
+
+            try {
+                const res = await fetch('/api/miniapp/order', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    closeCheckoutModal();
+                    showToast(data.message || 'سفارش با موفقیت ثبت شد!', 'success');
+                    await loadAppData();
+                    if (data.instant) {
+                        switchTab('services');
+                    } else {
+                        switchTab('wallet');
+                    }
+                } else {
+                    showToast(data.error || 'خطا در ثبت سفارش', 'error');
+                }
+            } catch (err) {
+                showToast('خطای شبکه در ثبت سفارش', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'تایید و ثبت نهایی سفارش';
+            }
+        }
+
+        // --- WALLET RECHARGE ---
+        async function handleWalletRecharge(e) {
+            e.preventDefault();
+            haptic('impact');
+
+            const amount = document.getElementById('wallet-amount').value;
+            const file = document.getElementById('wallet-receipt-file').files[0];
+            const text = document.getElementById('wallet-receipt-text').value;
+
+            if (!amount || amount <= 0) {
+                showToast('لطفاً مبلغ واریزی را وارد کنید.', 'error');
+                return;
+            }
+
+            let tgUser = tg?.initDataUnsafe?.user;
+            let tgId = currentUser?.telegram_id || tgUser?.id;
+
+            const btn = document.getElementById('btn-submit-wallet');
+            btn.disabled = true;
+            btn.innerText = 'در حال ارسال فیش...';
+
+            const formData = new FormData();
+            formData.append('telegram_id', tgId);
+            formData.append('amount', amount);
+            formData.append('payment_method', 'card');
+            formData.append('wallet_charge', '1');
+            if (file) formData.append('receipt_photo', file);
+            if (text) formData.append('receipt_text', text);
+
+            try {
+                const res = await fetch('/api/miniapp/order', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('رسید شما ثبت شد و پس از بررسی ادمین اعمال می‌گردد.', 'success');
+                    document.getElementById('wallet-amount').value = '';
+                    document.getElementById('wallet-receipt-file').value = '';
+                    document.getElementById('wallet-receipt-text').value = '';
+                } else {
+                    showToast(data.error || 'خطا در ارسال فیش', 'error');
+                }
+            } catch (err) {
+                showToast('خطای ارتباط با سرور', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'ارسال فیش واریز جهت تایید';
+            }
+        }
+
+        function showSupportModal() {
+            haptic('impact');
+            const supportText = appData.texts?.support || 'جهت ارتباط با پشتیبانی به آیدی ادمین پیام دهید.';
+            document.getElementById('support-modal-text').innerText = supportText;
+            
+            // Extract telegram link if present
+            const match = supportText.match(/@([a-zA-Z0-9_]+)/);
+            if (match) {
+                document.getElementById('btn-open-support-tg').href = 'https://t.me/' + match[1];
+            } else {
+                document.getElementById('btn-open-support-tg').href = 'https://t.me';
+            }
+
+            document.getElementById('supportModal').classList.remove('hidden');
+            document.getElementById('supportModal').classList.add('flex');
+        }
+
+        function closeSupportModal() {
+            document.getElementById('supportModal').classList.add('hidden');
+            document.getElementById('supportModal').classList.remove('flex');
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>"']/g, function(m) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+            });
+        }
+
+        // Initial Load
+        loadAppData();
     </script>
 </body>
 </html>

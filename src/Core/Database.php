@@ -119,6 +119,10 @@ class Database
             "ALTER TABLE panels ADD COLUMN max_days INTEGER DEFAULT 365",
             "ALTER TABLE panels ADD COLUMN categories_json TEXT",
             "ALTER TABLE plans ADD COLUMN category VARCHAR(100)",
+            "ALTER TABLE plans ADD COLUMN ip_limit INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE plans ADD COLUMN hwid_limit INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE services ADD COLUMN ip_limit INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE services ADD COLUMN hwid_limit INTEGER NOT NULL DEFAULT 0",
         ];
 
         foreach ($migrations as $mSql) {

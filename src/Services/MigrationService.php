@@ -78,16 +78,38 @@ class MigrationService
 
             foreach ($users as $u) {
                 try {
-                    $tgId = (string)($u['id'] ?? ($u['telegram_id'] ?? ''));
+                    $tgId = (string)($u['id'] ?? ($u['telegram_id'] ?? ($u['id_user'] ?? ($u[0] ?? ''))));
+                    $tgId = trim($tgId, "'\" \t\r\n");
                     if (empty($tgId) || !is_numeric($tgId)) {
                         continue;
                     }
 
-                    $username = !empty($u['username']) && $u['username'] !== 'none' ? $u['username'] : null;
-                    $firstName = !empty($u['namecustom']) && $u['namecustom'] !== 'none' ? $u['namecustom'] : ($username ?: 'کاربر میرزا');
-                    $balance = isset($u['Balance']) ? (int)$u['Balance'] : (isset($u['balance']) ? (int)$u['balance'] : 0);
+                    $username = null;
+                    if (!empty($u['username']) && $u['username'] !== 'none') {
+                        $username = trim($u['username'], "'\" \t\r\n");
+                    } elseif (!empty($u[3]) && $u[3] !== 'none') {
+                        $username = trim($u[3], "'\" \t\r\n");
+                    }
+
+                    $firstName = 'کاربر میرزا';
+                    if (!empty($u['namecustom']) && $u['namecustom'] !== 'none') {
+                        $firstName = trim($u['namecustom'], "'\" \t\r\n");
+                    } elseif (!empty($u[19]) && $u[19] !== 'none') {
+                        $firstName = trim($u[19], "'\" \t\r\n");
+                    } elseif ($username) {
+                        $firstName = $username;
+                    }
+
+                    $balance = 0;
+                    if (isset($u['Balance']) && is_numeric($u['Balance'])) {
+                        $balance = (int)$u['Balance'];
+                    } elseif (isset($u['balance']) && is_numeric($u['balance'])) {
+                        $balance = (int)$u['balance'];
+                    } elseif (isset($u[11]) && is_numeric($u[11])) {
+                        $balance = (int)$u[11];
+                    }
                     
-                    $regTime = $u['register'] ?? null;
+                    $regTime = $u['register'] ?? ($u[21] ?? null);
                     $createdAt = (is_numeric($regTime) && $regTime > 1000000000) 
                         ? date('Y-m-d H:i:s', (int)$regTime) 
                         : date('Y-m-d H:i:s');
@@ -229,8 +251,8 @@ class MigrationService
 
             // C. Import Products / Plans
             $stmtPlanCheck = $targetPdo->prepare("SELECT id FROM plans WHERE name = ?{$collate}");
-            $stmtPlanInsert = $targetPdo->prepare("INSERT INTO plans (name, description, category, price, traffic_gb, days, ip_limit, panel_id, is_active, sort_order) 
-                VALUES (:name, :description, :category, :price, :traffic_gb, :days, 1, :panel_id, 1, :sort_order)");
+            $stmtPlanInsert = $targetPdo->prepare("INSERT INTO plans (name, description, category, price, traffic_gb, days, ip_limit, hwid_limit, panel_id, is_active, sort_order) 
+                VALUES (:name, :description, :category, :price, :traffic_gb, :days, 1, 0, :panel_id, 1, :sort_order)");
 
             foreach ($products as $idx => $prod) {
                 try {
@@ -263,8 +285,8 @@ class MigrationService
 
             // D. Import Invoices (Services) & Enable Live Inquiry
             $stmtServiceCheck = $targetPdo->prepare("SELECT id FROM services WHERE client_email = ?{$collate} OR client_uuid = ?{$collate}");
-            $stmtServiceInsert = $targetPdo->prepare("INSERT INTO services (order_id, user_id, panel_id, client_uuid, client_email, inbound_id, subscription_url, config_link, wireguard_conf, traffic_gb, days, ip_limit, used_traffic_bytes, expires_at, is_active, created_at) 
-                VALUES (NULL, :user_id, :panel_id, :client_uuid, :client_email, 0, :subscription_url, :config_link, :wireguard_conf, :traffic_gb, :days, 1, 0, :expires_at, :is_active, :created_at)");
+            $stmtServiceInsert = $targetPdo->prepare("INSERT INTO services (order_id, user_id, panel_id, client_uuid, client_email, inbound_id, subscription_url, config_link, wireguard_conf, traffic_gb, days, ip_limit, hwid_limit, used_traffic_bytes, expires_at, is_active, created_at) 
+                VALUES (NULL, :user_id, :panel_id, :client_uuid, :client_email, 0, :subscription_url, :config_link, :wireguard_conf, :traffic_gb, :days, 1, 0, 0, :expires_at, :is_active, :created_at)");
 
             // Fallback panel if service_location not found
             $defaultPanelId = !empty($panelNameMap) ? reset($panelNameMap) : 1;
@@ -281,6 +303,7 @@ class MigrationService
                                 ->execute([$tgUserId, date('Y-m-d H:i:s')]);
                             $userId = (int)$targetPdo->lastInsertId();
                             $userMap[$tgUserId] = $userId;
+                            $stats['users']++;
                         } else {
                             continue;
                         }
@@ -389,13 +412,23 @@ class MigrationService
 
             // 1. Users
             $q = $sqlite->query("SELECT * FROM user");
+            if (!$q) $q = $sqlite->query("SELECT * FROM users");
             if ($q) $users = $q->fetchAll();
 
             // 2. Panels
             $q = $sqlite->query("SELECT * FROM marzban_panel");
+            if (!$q) $q = $sqlite->query("SELECT * FROM panels");
             if ($q) $panels = $q->fetchAll();
 
             // 3. Products
+            $q = $sqlite->query("SELECT * FROM product");
+            if (!$q) $q = $sqlite->query("SELECT * FROM products");
+            if ($q) $products = $q->fetchAll();
+
+            // 4. Invoices
+            $q = $sqlite->query("SELECT * FROM invoice");
+            if (!$q) $q = $sqlite->query("SELECT * FROM invoices");
+            if ($q) $invoices = $q->fetchAll();
             $q = $sqlite->query("SELECT * FROM product");
             if ($q) $products = $q->fetchAll();
 
@@ -416,7 +449,7 @@ class MigrationService
     }
 
     /**
-     * Fast streaming parser for MySQL .sql dump files
+     * Fast, streaming and multiline-aware parser for MySQL .sql dump files
      */
     private static function extractFromSqlDump(string $filePath): array
     {
@@ -430,42 +463,76 @@ class MigrationService
         $products = [];
         $invoices = [];
 
-        $currentTable = null;
-        $columns = [];
         $buffer = '';
+        $inStatement = false;
+        $currentTable = null;
+        $inQuote = false;
+        $quoteChar = null;
 
         while (!feof($handle)) {
             $line = fgets($handle);
             if ($line === false) break;
 
             $trimmed = trim($line);
-            if (empty($trimmed) || str_starts_with($trimmed, '--') || str_starts_with($trimmed, '/*')) {
-                continue;
-            }
 
-            // Detect INSERT INTO statement
-            if (preg_match('/INSERT\s+INTO\s+[`\'"]?([a-zA-Z0-9_]+)[`\'"]?\s*(?:\(([^)]+)\))?\s*VALUES/i', $line, $matches)) {
-                $currentTable = strtolower($matches[1]);
-                $colStr = $matches[2] ?? '';
-                if (!empty($colStr)) {
-                    $columns = array_map(function ($c) {
-                        return trim($c, " `'\"\r\n\t");
-                    }, explode(',', $colStr));
-                } else {
-                    $columns = self::getDefaultColumnsForTable($currentTable);
+            if (!$inStatement) {
+                if (empty($trimmed) || str_starts_with($trimmed, '--') || str_starts_with($trimmed, '/*') || str_starts_with($trimmed, '#')) {
+                    continue;
                 }
-                $buffer = $line;
-            } elseif ($currentTable !== null) {
-                $buffer .= ' ' . $line;
+
+                // Detect start of INSERT INTO or REPLACE INTO
+                if (preg_match('/^(?:INSERT(?:\s+IGNORE)?|REPLACE)\s+INTO\s+[`\'"]?([a-zA-Z0-9_]+)[`\'"]?/i', $trimmed, $m)) {
+                    $tableCandidate = strtolower($m[1]);
+                    if (in_array($tableCandidate, ['user', 'users', 'marzban_panel', 'panels', 'product', 'products', 'invoice', 'invoices'])) {
+                        $inStatement = true;
+                        $currentTable = $tableCandidate;
+                        $buffer = $line;
+                        $inQuote = false;
+                        $quoteChar = null;
+                    } else {
+                        continue;
+                    }
+                } else {
+                    continue;
+                }
+            } else {
+                $buffer .= $line;
             }
 
-            // If statement ends with semicolon
-            if ($currentTable !== null && str_ends_with(rtrim($trimmed), ';')) {
-                self::parseInsertValues($buffer, $currentTable, $columns, $users, $panels, $products, $invoices);
-                $currentTable = null;
-                $columns = [];
-                $buffer = '';
+            // Semicolon detection outside of quotes
+            $len = strlen($line);
+            for ($i = 0; $i < $len; $i++) {
+                $ch = $line[$i];
+
+                if ($inQuote) {
+                    if ($ch === '\\') {
+                        $i++;
+                        continue;
+                    }
+                    if ($ch === $quoteChar) {
+                        $inQuote = false;
+                        $quoteChar = null;
+                    }
+                } else {
+                    if ($ch === "'" || $ch === '"') {
+                        $inQuote = true;
+                        $quoteChar = $ch;
+                    } elseif ($ch === ';') {
+                        // Statement is complete
+                        self::processInsertStatement($buffer, $currentTable, $users, $panels, $products, $invoices);
+                        $inStatement = false;
+                        $currentTable = null;
+                        $buffer = '';
+                        $inQuote = false;
+                        $quoteChar = null;
+                        break;
+                    }
+                }
             }
+        }
+
+        if ($inStatement && !empty($buffer) && $currentTable !== null) {
+            self::processInsertStatement($buffer, $currentTable, $users, $panels, $products, $invoices);
         }
 
         fclose($handle);
@@ -480,90 +547,146 @@ class MigrationService
     }
 
     /**
-     * Parse tuples of VALUES (...) in SQL dump
+     * Process a complete INSERT INTO statement buffer
      */
-    private static function parseInsertValues(string $sql, string $table, array $columns, array &$users, array &$panels, array &$products, array &$invoices): void
+    private static function processInsertStatement(string $sql, string $table, array &$users, array &$panels, array &$products, array &$invoices): void
     {
-        // Extract everything after VALUES
         $pos = stripos($sql, 'VALUES');
         if ($pos === false) return;
 
+        $prefix = substr($sql, 0, $pos);
         $valuesPart = substr($sql, $pos + 6);
         $valuesPart = rtrim(trim($valuesPart), ';');
 
-        // Split tuples safely
-        $len = strlen($valuesPart);
-        $inQuote = false;
-        $quoteChar = '';
-        $inParen = false;
-        $currentVal = '';
-        $rowVals = [];
+        // Extract column names if specified in prefix
+        $columns = [];
+        if (preg_match('/\((.*?)\)\s*$/s', trim($prefix), $cm)) {
+            $colRaw = $cm[1];
+            $columns = array_map(function ($c) {
+                return trim($c, " `'\"\r\n\t");
+            }, explode(',', $colRaw));
+        }
 
-        for ($i = 0; $i < $len; $i++) {
-            $char = $valuesPart[$i];
-            $prev = $i > 0 ? $valuesPart[$i - 1] : '';
+        $normTable = match ($table) {
+            'users' => 'user',
+            'panels' => 'marzban_panel',
+            'products' => 'product',
+            'invoices' => 'invoice',
+            default => $table
+        };
 
-            if (!$inQuote && ($char === "'" || $char === '"')) {
-                $inQuote = true;
-                $quoteChar = $char;
-                continue;
-            }
+        if (empty($columns)) {
+            $columns = self::getDefaultColumnsForTable($normTable);
+        }
 
-            if ($inQuote && $char === $quoteChar && $prev !== '\\') {
-                $inQuote = false;
-                continue;
-            }
+        // Parse tuples with robust parser
+        $rows = self::parseSqlTuples($valuesPart);
 
-            if (!$inQuote) {
-                if ($char === '(') {
-                    $inParen = true;
-                    $rowVals = [];
-                    $currentVal = '';
-                    continue;
-                } elseif ($char === ')') {
-                    $inParen = false;
-                    $rowVals[] = self::cleanSqlVal($currentVal);
-                    $currentVal = '';
-
-                    // Build assoc row
-                    $row = [];
-                    foreach ($columns as $idx => $colName) {
-                        $row[$colName] = $rowVals[$idx] ?? null;
-                    }
-
-                    if ($table === 'user') {
-                        $users[] = $row;
-                    } elseif ($table === 'marzban_panel') {
-                        $panels[] = $row;
-                    } elseif ($table === 'product') {
-                        $products[] = $row;
-                    } elseif ($table === 'invoice') {
-                        $invoices[] = $row;
-                    }
-                    continue;
-                } elseif ($char === ',' && $inParen) {
-                    $rowVals[] = self::cleanSqlVal($currentVal);
-                    $currentVal = '';
-                    continue;
+        foreach ($rows as $rowVals) {
+            $row = [];
+            foreach ($columns as $idx => $colName) {
+                if (isset($rowVals[$idx])) {
+                    $row[$colName] = $rowVals[$idx];
                 }
             }
+            // Also keep numeric indices for fallback
+            foreach ($rowVals as $idx => $val) {
+                $row[$idx] = $val;
+            }
 
-            if ($inParen) {
-                $currentVal .= $char;
+            if ($normTable === 'user') {
+                $users[] = $row;
+            } elseif ($normTable === 'marzban_panel') {
+                $panels[] = $row;
+            } elseif ($normTable === 'product') {
+                $products[] = $row;
+            } elseif ($normTable === 'invoice') {
+                $invoices[] = $row;
             }
         }
     }
 
-    private static function cleanSqlVal(string $val): ?string
+    /**
+     * Parse tuples of VALUES (...) in SQL dump with full support for escaped quotes, newlines & JSON
+     */
+    private static function parseSqlTuples(string $sql): array
     {
-        $val = trim($val);
-        if (strtoupper($val) === 'NULL') {
-            return null;
+        $rows = [];
+        $currentRow = [];
+        $currentCell = '';
+        $inParen = false;
+        $inQuote = false;
+        $wasQuoted = false;
+        $len = strlen($sql);
+
+        for ($i = 0; $i < $len; $i++) {
+            $c = $sql[$i];
+
+            if ($inQuote) {
+                if ($c === '\\') {
+                    $i++;
+                    if ($i < $len) {
+                        $next = $sql[$i];
+                        $currentCell .= match($next) {
+                            'n' => "\n",
+                            'r' => "\r",
+                            't' => "\t",
+                            '0' => "\0",
+                            default => $next
+                        };
+                    }
+                    continue;
+                }
+                if ($c === "'") {
+                    // Check for standard SQL double-quote escape: ''
+                    if ($i + 1 < $len && $sql[$i + 1] === "'") {
+                        $currentCell .= "'";
+                        $i++;
+                        continue;
+                    }
+                    $inQuote = false;
+                    continue;
+                }
+                $currentCell .= $c;
+                continue;
+            }
+
+            // Outside quotes
+            if ($c === "'") {
+                $inQuote = true;
+                $wasQuoted = true;
+                continue;
+            }
+            if ($c === '(' && !$inParen) {
+                $inParen = true;
+                $currentRow = [];
+                $currentCell = '';
+                $wasQuoted = false;
+                continue;
+            }
+            if ($c === ')' && $inParen) {
+                $inParen = false;
+                $val = $wasQuoted ? $currentCell : (trim($currentCell) === 'NULL' ? null : trim($currentCell));
+                $currentRow[] = $val;
+                $currentCell = '';
+                $wasQuoted = false;
+                $rows[] = $currentRow;
+                $currentRow = [];
+                continue;
+            }
+            if ($c === ',' && $inParen) {
+                $val = $wasQuoted ? $currentCell : (trim($currentCell) === 'NULL' ? null : trim($currentCell));
+                $currentRow[] = $val;
+                $currentCell = '';
+                $wasQuoted = false;
+                continue;
+            }
+            if ($inParen) {
+                $currentCell .= $c;
+            }
         }
-        if ((str_starts_with($val, "'") && str_ends_with($val, "'")) || (str_starts_with($val, '"') && str_ends_with($val, '"'))) {
-            $val = substr($val, 1, -1);
-        }
-        return stripslashes($val);
+
+        return $rows;
     }
 
     private static function getDefaultColumnsForTable(string $table): array

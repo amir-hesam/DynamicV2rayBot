@@ -20,7 +20,7 @@
                     <th class="p-4 font-medium">نام پلن</th>
                     <th class="p-4 font-medium">حجم</th>
                     <th class="p-4 font-medium">مدت اعتبار</th>
-                    <th class="p-4 font-medium">محدودیت IP</th>
+                    <th class="p-4 font-medium">محدودیت (IP / HWID)</th>
                     <th class="p-4 font-medium">قیمت (تومان)</th>
                     <th class="p-4 font-medium">سرور / پنل</th>
                     <th class="p-4 font-medium">وضعیت</th>
@@ -45,9 +45,14 @@
                             <td class="p-4 font-mono text-blue-400"><?= $plan['traffic_gb'] ?> GB</td>
                             <td class="p-4"><?= $plan['days'] ?> روز</td>
                             <td class="p-4">
-                                <span class="px-2 py-0.5 rounded text-xs bg-slate-800 text-slate-300">
-                                    <?= ($plan['ip_limit'] > 0) ? $plan['ip_limit'] . ' کاربر' : 'نامحدود' ?>
-                                </span>
+                                <div class="flex flex-col gap-1 text-[11px]">
+                                    <span class="px-2 py-0.5 rounded bg-blue-950/40 text-blue-300 border border-blue-800/30">
+                                        🌐 IP: <?= ($plan['ip_limit'] > 0) ? $plan['ip_limit'] . ' کاربر' : 'نامحدود' ?>
+                                    </span>
+                                    <span class="px-2 py-0.5 rounded bg-purple-950/40 text-purple-300 border border-purple-800/30">
+                                        📱 HWID: <?= (!empty($plan['hwid_limit']) && $plan['hwid_limit'] > 0) ? $plan['hwid_limit'] . ' دستگاه' : 'نامحدود' ?>
+                                    </span>
+                                </div>
                             </td>
                             <td class="p-4 font-medium text-emerald-400"><?= number_format($plan['price']) ?></td>
                             <td class="p-4 text-xs text-slate-400">
@@ -102,14 +107,20 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-3 gap-3">
                 <div>
                     <label class="block text-xs font-medium text-slate-300 mb-1.5">قیمت (تومان)</label>
-                    <input type="number" name="price" id="plan_price" required value="89000" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500">
+                    <input type="number" name="price" id="plan_price" required value="89000" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500">
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1.5">محدودیت کاربر همزمان (IP Limit)</label>
-                    <input type="number" name="ip_limit" id="plan_ip_limit" value="1" placeholder="0 برای نامحدود" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500">
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">محدودیت IP</label>
+                    <input type="number" name="ip_limit" id="plan_ip_limit" value="1" placeholder="0 برای نامحدود" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500">
+                    <span class="text-[10px] text-slate-500">0 = نامحدود</span>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">محدودیت HWID</label>
+                    <input type="number" name="hwid_limit" id="plan_hwid_limit" value="0" placeholder="0 برای نامحدود" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500">
+                    <span class="text-[10px] text-slate-500">0 = نامحدود</span>
                 </div>
             </div>
 
@@ -152,6 +163,7 @@ function openPlanModal() {
     document.getElementById('plan_days').value = '30';
     document.getElementById('plan_price').value = '89000';
     document.getElementById('plan_ip_limit').value = '1';
+    document.getElementById('plan_hwid_limit').value = '0';
     document.getElementById('plan_panel_id').value = '0';
     document.getElementById('plan_sort_order').value = '0';
     document.getElementById('plan_is_active').checked = true;
@@ -168,6 +180,7 @@ function editPlan(data) {
     document.getElementById('plan_days').value = data.days;
     document.getElementById('plan_price').value = data.price;
     document.getElementById('plan_ip_limit').value = data.ip_limit;
+    document.getElementById('plan_hwid_limit').value = data.hwid_limit || '0';
     document.getElementById('plan_panel_id').value = data.panel_id || '0';
     document.getElementById('plan_sort_order').value = data.sort_order || '0';
     document.getElementById('plan_is_active').checked = data.is_active == 1;
