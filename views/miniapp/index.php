@@ -1,11 +1,18 @@
 <!DOCTYPE html>
-<html lang="fa" dir="rtl" class="theme-dark">
+<html lang="fa" dir="rtl" class="theme-dark dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>VPN Master Mini App</title>
-    <!-- Telegram WebApp SDK -->
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Telegram WebApp SDK (Local first for Iran network, then official CDN) -->
+    <script src="/assets/js/telegram-web-app.js"></script>
+    <script>
+        if (typeof window.Telegram === 'undefined') {
+            document.write('<script src="https://telegram.org/js/telegram-web-app.js"><\/script>');
+        }
+    </script>
+    <!-- FontAwesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Vazirmatn Font -->
@@ -45,55 +52,55 @@
             transition: background-color 0.25s ease, color 0.25s ease;
         }
 
-        /* --- THEME STYLES --- */
-        /* Dark Theme */
-        html.theme-dark body {
-            background-color: #0b0f19;
-            color: #f1f5f9;
+        /* --- THEME STYLES (Neutral Zinc / Pasargad Theme) --- */
+        /* Dark Theme - Pure Obsidian / Zinc (No Blue) */
+        html.theme-dark body, html.dark body {
+            background-color: #09090b;
+            color: #f4f4f5;
         }
-        html.theme-dark .app-header {
-            background: rgba(11, 15, 25, 0.85);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        html.theme-dark .app-header, html.dark .app-header {
+            background: rgba(9, 9, 11, 0.88);
+            border-bottom: 1px solid #27272a;
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
         }
-        html.theme-dark .app-card {
-            background: rgba(22, 30, 49, 0.65);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+        html.theme-dark .app-card, html.dark .app-card {
+            background: #141417;
+            border: 1px solid #27272a;
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
-            color: #f8fafc;
+            color: #f4f4f5;
         }
-        html.theme-dark .app-card-solid {
-            background: #131b2e;
-            border: 1px solid rgba(255, 255, 255, 0.08);
+        html.theme-dark .app-card-solid, html.dark .app-card-solid {
+            background: #1c1c21;
+            border: 1px solid #2e2e35;
         }
-        html.theme-dark .app-input {
-            background: #0d1322;
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            color: #f8fafc;
+        html.theme-dark .app-input, html.dark .app-input {
+            background: #121215;
+            border: 1px solid #323238;
+            color: #f4f4f5;
         }
-        html.theme-dark .app-input:focus {
+        html.theme-dark .app-input:focus, html.dark .app-input:focus {
             border-color: #6366f1;
-            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
         }
-        html.theme-dark .app-navbar {
-            background: rgba(15, 23, 42, 0.9);
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        html.theme-dark .app-navbar, html.dark .app-navbar {
+            background: rgba(14, 14, 17, 0.94);
+            border-top: 1px solid #27272a;
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
         }
-        html.theme-dark .text-muted { color: #94a3b8; }
-        html.theme-dark .bg-subtle { background-color: rgba(255, 255, 255, 0.05); }
+        html.theme-dark .text-muted, html.dark .text-muted { color: #a1a1aa; }
+        html.theme-dark .bg-subtle, html.dark .bg-subtle { background-color: rgba(255, 255, 255, 0.05); }
 
-        /* Light Theme */
+        /* Light Theme - Clean Crisp Slate / White */
         html.theme-light body {
             background-color: #f8fafc;
             color: #0f172a;
         }
         html.theme-light .app-header {
-            background: rgba(255, 255, 255, 0.9);
-            border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+            background: rgba(255, 255, 255, 0.92);
+            border-bottom: 1px solid #e2e8f0;
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
         }
@@ -117,7 +124,7 @@
             box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
         }
         html.theme-light .app-navbar {
-            background: rgba(255, 255, 255, 0.92);
+            background: rgba(255, 255, 255, 0.95);
             border-top: 1px solid #e2e8f0;
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
@@ -179,16 +186,23 @@
         </div>
 
         <div class="flex items-center gap-2">
-            <!-- Theme Toggle Button -->
-            <button onclick="toggleTheme()" class="w-9 h-9 rounded-xl flex items-center justify-center bg-subtle text-sm transition hover:scale-105 active:scale-95" title="تغییر حالت تم">
-                <span id="theme-icon">🌙</span>
-            </button>
-
             <!-- Quick Balance Pill -->
             <div onclick="switchTab('wallet')" class="cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border border-indigo-500/20 text-xs font-semibold hover:bg-indigo-500/20 transition active:scale-95">
                 <span class="text-xs">💰</span>
                 <span id="header-balance" class="font-mono">0</span>
                 <span class="text-[10px] font-normal text-muted">تومان</span>
+            </div>
+
+            <!-- Modern Theme Switcher matching Pasargad panel -->
+            <div class="theme-switcher-box flex flex-col p-0.5 rounded-xl bg-slate-100 dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 text-[11px] select-none shadow-sm">
+                <button type="button" onclick="setTheme('light')" id="themeBtnLight" class="flex items-center gap-1.5 px-2 py-0.5 rounded-lg transition-all font-semibold text-slate-800 dark:text-zinc-400 hover:text-black dark:hover:text-white">
+                    <i class="fa-regular fa-sun text-[10px]"></i>
+                    <span>Light</span>
+                </button>
+                <button type="button" onclick="setTheme('dark')" id="themeBtnDark" class="flex items-center gap-1.5 px-2 py-0.5 rounded-lg transition-all font-semibold text-slate-500 dark:text-white hover:text-black dark:hover:text-white">
+                    <i class="fa-regular fa-moon text-[10px]"></i>
+                    <span>Dark</span>
+                </button>
             </div>
         </div>
     </header>
@@ -699,39 +713,108 @@
         let checkoutPayMethod = 'wallet';
         let isCustomCheckout = false;
 
+        // Robust Telegram User identification
+        function getTelegramUser() {
+            // 1. Try URL parameters (?user_id=... or ?tg_id=... or ?id=...)
+            const urlParams = new URLSearchParams(window.location.search);
+            const tgId = urlParams.get('user_id') || urlParams.get('tg_id') || urlParams.get('id');
+            if (tgId && tgId !== '0') {
+                const u = {
+                    id: tgId,
+                    first_name: urlParams.get('first_name') || 'کاربر',
+                    username: urlParams.get('username') || ''
+                };
+                try { localStorage.setItem('vpn_miniapp_user', JSON.stringify(u)); } catch(e) {}
+                return u;
+            }
+
+            // 2. Try window.Telegram.WebApp.initDataUnsafe
+            if (window.Telegram?.WebApp?.initDataUnsafe?.user?.id) {
+                const u = window.Telegram.WebApp.initDataUnsafe.user;
+                try { localStorage.setItem('vpn_miniapp_user', JSON.stringify(u)); } catch(e) {}
+                return u;
+            }
+
+            // 3. Try parsing Telegram initData string
+            if (window.Telegram?.WebApp?.initData) {
+                try {
+                    const p = new URLSearchParams(window.Telegram.WebApp.initData);
+                    const userStr = p.get('user');
+                    if (userStr) {
+                        const u = JSON.parse(decodeURIComponent(userStr));
+                        try { localStorage.setItem('vpn_miniapp_user', JSON.stringify(u)); } catch(e) {}
+                        return u;
+                    }
+                } catch(e) {}
+            }
+
+            // 4. Try parsing hash fragment (#tgWebAppData=...)
+            if (window.location.hash) {
+                try {
+                    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+                    const rawData = hashParams.get('tgWebAppData');
+                    if (rawData) {
+                        const subParams = new URLSearchParams(rawData);
+                        const userStr = subParams.get('user');
+                        if (userStr) {
+                            const u = JSON.parse(decodeURIComponent(userStr));
+                            try { localStorage.setItem('vpn_miniapp_user', JSON.stringify(u)); } catch(e) {}
+                            return u;
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            // 5. Try cached user from localStorage
+            try {
+                const cached = localStorage.getItem('vpn_miniapp_user');
+                if (cached) {
+                    const u = JSON.parse(cached);
+                    if (u && u.id && u.id !== '0') return u;
+                }
+            } catch(e) {}
+
+            return null;
+        }
+
         // Initialize Telegram WebApp
         if (tg) {
-            tg.ready();
-            tg.expand();
-            // Match telegram theme if not manually set
-            const savedTheme = localStorage.getItem('vpn_miniapp_theme');
-            if (savedTheme) {
-                setTheme(savedTheme);
-            } else if (tg.colorScheme === 'light') {
-                setTheme('light');
-            } else {
-                setTheme('dark');
-            }
+            try {
+                tg.ready();
+                tg.expand();
+            } catch(e) {}
         }
 
         // Theme management
-        function toggleTheme() {
-            haptic('impact');
-            const isDark = document.documentElement.classList.contains('theme-dark');
-            const newTheme = isDark ? 'light' : 'dark';
-            setTheme(newTheme);
-            localStorage.setItem('vpn_miniapp_theme', newTheme);
-        }
+        const savedTheme = localStorage.getItem('vpn_miniapp_theme') || (tg?.colorScheme === 'light' ? 'light' : 'dark');
+        setTheme(savedTheme);
 
         function setTheme(theme) {
+            haptic('impact');
             if (theme === 'light') {
-                document.documentElement.classList.remove('theme-dark');
+                document.documentElement.classList.remove('theme-dark', 'dark');
                 document.documentElement.classList.add('theme-light');
-                document.getElementById('theme-icon').innerText = '☀️';
+                localStorage.setItem('vpn_miniapp_theme', 'light');
             } else {
                 document.documentElement.classList.remove('theme-light');
-                document.documentElement.classList.add('theme-dark');
-                document.getElementById('theme-icon').innerText = '🌙';
+                document.documentElement.classList.add('theme-dark', 'dark');
+                localStorage.setItem('vpn_miniapp_theme', 'dark');
+            }
+            updateThemeSwitcherUI(theme);
+        }
+
+        function updateThemeSwitcherUI(mode) {
+            const isDark = (mode === 'dark');
+            const bLight = document.getElementById('themeBtnLight');
+            const bDark = document.getElementById('themeBtnDark');
+            if (bLight && bDark) {
+                if (isDark) {
+                    bLight.className = 'flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] transition-all font-medium text-zinc-400 hover:text-white';
+                    bDark.className = 'flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] transition-all font-bold bg-zinc-800 text-white shadow-sm';
+                } else {
+                    bLight.className = 'flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] transition-all font-bold bg-white text-slate-900 shadow-sm';
+                    bDark.className = 'flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] transition-all font-medium text-slate-500 hover:text-black';
+                }
             }
         }
 
@@ -800,11 +883,16 @@
 
         // --- LOAD DATA FROM API ---
         async function loadAppData() {
-            let tgUser = tg?.initDataUnsafe?.user;
+            let tgUser = getTelegramUser();
             let tgId = tgUser?.id || '';
 
             try {
-                const res = await fetch('/api/miniapp/data?telegram_id=' + tgId);
+                const query = new URLSearchParams();
+                if (tgId) query.set('telegram_id', tgId);
+                if (tgUser?.first_name) query.set('first_name', tgUser.first_name);
+                if (tgUser?.username) query.set('username', tgUser.username);
+
+                const res = await fetch('/api/miniapp/data?' + query.toString());
                 const data = await res.json();
 
                 if (data.success) {
@@ -1356,7 +1444,7 @@
             btn.disabled = true;
             btn.innerText = 'در حال پردازش سفارش...';
 
-            let tgUser = tg?.initDataUnsafe?.user;
+            let tgUser = getTelegramUser();
             let tgId = currentUser?.telegram_id || tgUser?.id || appData?.admin_telegram_id || '';
 
             if (!tgId) {
@@ -1431,8 +1519,8 @@
                 return;
             }
 
-            let tgUser = tg?.initDataUnsafe?.user;
-            let tgId = currentUser?.telegram_id || tgUser?.id;
+            let tgUser = getTelegramUser();
+            let tgId = currentUser?.telegram_id || tgUser?.id || appData?.admin_telegram_id || '';
 
             const btn = document.getElementById('btn-submit-wallet');
             btn.disabled = true;

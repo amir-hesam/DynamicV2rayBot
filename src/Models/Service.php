@@ -37,8 +37,8 @@ class Service
         $stmt = $pdo->prepare("SELECT s.*, pn.name as panel_name, pn.type as panel_type 
                 FROM services s 
                 LEFT JOIN panels pn ON s.panel_id = pn.id 
-                WHERE s.user_id = ? AND s.is_active = 1 
-                ORDER BY s.id DESC");
+                WHERE s.user_id = ? 
+                ORDER BY s.is_active DESC, s.id DESC");
         $stmt->execute([$userId]);
         return $stmt->fetchAll();
     }

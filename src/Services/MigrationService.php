@@ -101,12 +101,26 @@ class MigrationService
                     }
 
                     $balance = 0;
-                    if (isset($u['Balance']) && is_numeric($u['Balance'])) {
-                        $balance = (int)$u['Balance'];
-                    } elseif (isset($u['balance']) && is_numeric($u['balance'])) {
-                        $balance = (int)$u['balance'];
-                    } elseif (isset($u[11]) && is_numeric($u[11])) {
-                        $balance = (int)$u[11];
+                    foreach ($u as $k => $val) {
+                        $cleanK = strtolower(trim((string)$k, " `'\""));
+                        if ($cleanK === 'balance' || $cleanK === 'credit' || $cleanK === 'wallet') {
+                            $cleanVal = trim((string)$val, "'\" \t\r\n");
+                            if (is_numeric($cleanVal)) {
+                                $balance = (int)$cleanVal;
+                                break;
+                            }
+                        }
+                    }
+                    if ($balance === 0) {
+                        foreach ([5, 11, 4] as $idx) {
+                            if (isset($u[$idx])) {
+                                $cleanVal = trim((string)$u[$idx], "'\" \t\r\n");
+                                if (is_numeric($cleanVal) && (int)$cleanVal > 0) {
+                                    $balance = (int)$cleanVal;
+                                    break;
+                                }
+                            }
+                        }
                     }
                     
                     $regTime = $u['register'] ?? ($u[21] ?? null);
@@ -293,42 +307,85 @@ class MigrationService
 
             foreach ($invoices as $inv) {
                 try {
-                    $tgUserId = (string)($inv['id_user'] ?? '');
-                    $userId = $userMap[$tgUserId] ?? null;
+                    $tgUserId = '';
+                    foreach ($inv as $k => $val) {
+                        $cleanK = strtolower(trim((string)$k, " `'\""));
+                        if (in_array($cleanK, ['id_user', 'user_id', 'chat_id', 'id_chat'])) {
+                            $cleanVal = trim((string)$val, "'\" \t\r\n");
+                            if (!empty($cleanVal) && is_numeric($cleanVal)) {
+                                $tgUserId = $cleanVal;
+                                break;
+                            }
+                        }
+                    }
+                    if (empty($tgUserId) && !empty($inv[1]) && is_numeric(trim((string)$inv[1], "'\" \t\r\n"))) {
+                        $tgUserId = trim((string)$inv[1], "'\" \t\r\n");
+                    }
 
-                    if (!$userId) {
-                        // Create minimal user placeholder if not exists
-                        if (!empty($tgUserId) && is_numeric($tgUserId)) {
+                    $userId = $userMap[$tgUserId] ?? null;
+                    if (!$userId && !empty($tgUserId)) {
+                        $stmtUserCheck->execute([$tgUserId]);
+                        $foundId = $stmtUserCheck->fetchColumn();
+                        if ($foundId) {
+                            $userId = (int)$foundId;
+                            $userMap[$tgUserId] = $userId;
+                        } else {
                             $targetPdo->prepare("INSERT INTO users (telegram_id, username, first_name, balance, step, created_at) VALUES (?, NULL, 'کاربر میرزا', 0, 'idle', ?)")
                                 ->execute([$tgUserId, date('Y-m-d H:i:s')]);
                             $userId = (int)$targetPdo->lastInsertId();
                             $userMap[$tgUserId] = $userId;
                             $stats['users']++;
-                        } else {
-                            continue;
                         }
                     }
 
-                    $configUsername = trim($inv['username'] ?? '');
+                    if (!$userId) {
+                        continue;
+                    }
+
+                    $configUsername = '';
+                    foreach ($inv as $k => $val) {
+                        $cleanK = strtolower(trim((string)$k, " `'\""));
+                        if (in_array($cleanK, ['username', 'email', 'client_email', 'config_username'])) {
+                            $configUsername = trim((string)$val, "'\" \t\r\n");
+                            if (!empty($configUsername)) break;
+                        }
+                    }
+                    if (empty($configUsername) && !empty($inv[2])) {
+                        $configUsername = trim((string)$inv[2], "'\" \t\r\n");
+                    }
                     if (empty($configUsername)) {
                         continue;
                     }
 
-                    $loc = trim($inv['Service_location'] ?? '');
+                    $loc = trim($inv['Service_location'] ?? ($inv[3] ?? ''));
                     $panelId = $panelNameMap[$loc] ?? $defaultPanelId;
 
-                    $vol = (int)($inv['Volume'] ?? 0);
-                    $days = (int)($inv['Service_time'] ?? 30);
-                    $uuid = $inv['uuid'] ?? $configUsername;
-                    $statusStr = strtolower($inv['Status'] ?? 'active');
-                    $isActive = ($statusStr === 'active' || $statusStr === '0' || $statusStr === '') ? 1 : 0;
+                    $vol = (int)($inv['Volume'] ?? ($inv[7] ?? 0));
+                    $days = (int)($inv['Service_time'] ?? ($inv[8] ?? 30));
+                    $uuid = $inv['uuid'] ?? ($inv[9] ?? $configUsername);
+                    
+                    $statusStr = '';
+                    foreach ($inv as $k => $val) {
+                        $cleanK = strtolower(trim((string)$k, " `'\""));
+                        if ($cleanK === 'status') {
+                            $statusStr = strtolower(trim((string)$val, "'\" \t\r\n"));
+                            break;
+                        }
+                    }
+                    if (empty($statusStr) && isset($inv[16])) {
+                        $statusStr = strtolower(trim((string)$inv[16], "'\" \t\r\n"));
+                    }
+
+                    // In MirzaBot: active, end_of_time, end_of_volume, sendedwarn, send_on_hold are all imported as user services
+                    $isDead = in_array($statusStr, ['removebyadmin', 'deleted', 'unpaid', 'disabled_by_admin', 'cancel']);
+                    $isActive = $isDead ? 0 : 1;
 
                     // Parse user_info json if available
                     $subUrl = '';
                     $configLink = '';
                     $wireguardConf = null;
 
-                    $userInfoStr = $inv['user_info'] ?? '';
+                    $userInfoStr = $inv['user_info'] ?? ($inv[11] ?? '');
                     if ($userInfoStr) {
                         $uInfo = json_decode($userInfoStr, true);
                         if (is_array($uInfo)) {
@@ -352,14 +409,31 @@ class MigrationService
                     }
 
                     // Expiration time calculation
-                    $timeSell = $inv['time_sell'] ?? null;
+                    $timeSell = $inv['time_sell'] ?? ($inv[4] ?? null);
                     $createdTs = (is_numeric($timeSell) && $timeSell > 1000000000) ? (int)$timeSell : time();
                     $createdAt = date('Y-m-d H:i:s', $createdTs);
                     $expiresAt = ($days > 0) ? date('Y-m-d H:i:s', $createdTs + ($days * 86400)) : null;
 
-                    // Check for duplicate service
+                    // If active, ensure expiration is in the future so service is immediately usable
+                    if ($isActive && ($expiresAt === null || strtotime($expiresAt) < time())) {
+                        $expiresAt = ($days > 0) ? date('Y-m-d H:i:s', time() + ($days * 86400)) : date('Y-m-d H:i:s', time() + (30 * 86400));
+                    }
+
+                    // Check for duplicate service: update if exists to link user, or insert new
                     $stmtServiceCheck->execute([$configUsername, $configUsername]);
-                    if (!$stmtServiceCheck->fetchColumn()) {
+                    $existingServiceId = $stmtServiceCheck->fetchColumn();
+                    if ($existingServiceId) {
+                        $targetPdo->prepare("UPDATE services SET user_id = :user_id, panel_id = :panel_id, is_active = :is_active, expires_at = :expires_at, subscription_url = COALESCE(NULLIF(:sub_url, ''), subscription_url), config_link = COALESCE(NULLIF(:config_link, ''), config_link) WHERE id = :id")
+                            ->execute([
+                                'id' => $existingServiceId,
+                                'user_id' => $userId,
+                                'panel_id' => $panelId,
+                                'is_active' => $isActive,
+                                'expires_at' => $expiresAt,
+                                'sub_url' => $subUrl,
+                                'config_link' => $configLink,
+                            ]);
+                    } else {
                         $stmtServiceInsert->execute([
                             'user_id' => $userId,
                             'panel_id' => $panelId,

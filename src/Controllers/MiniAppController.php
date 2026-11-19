@@ -48,11 +48,11 @@ class MiniAppController
             $isAdmin = User::isAdmin($telegramId);
             $user = User::findByTelegramId($telegramId);
 
-            if (!$user && $isAdmin) {
+            if (!$user) {
                 $user = User::findOrCreate([
                     'id' => $telegramId,
-                    'first_name' => 'مدیر ارشد',
-                    'username' => 'admin'
+                    'first_name' => $isAdmin ? 'مدیر ارشد' : 'کاربر تلگرام',
+                    'username' => $isAdmin ? 'admin' : ''
                 ]);
             }
 

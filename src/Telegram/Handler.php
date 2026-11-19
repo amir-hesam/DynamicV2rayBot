@@ -49,7 +49,7 @@ class Handler
         // Cancel action
         if ($text === '❌ انصراف') {
             User::setStep($user['id'], 'idle');
-            $this->bot->sendMessage($from['id'], "عملیات لغو شد.", Keyboard::mainMenu());
+            $this->bot->sendMessage($from['id'], "عملیات لغو شد.", Keyboard::mainMenu($isAdmin, $from['id']));
             return;
         }
 
@@ -87,13 +87,13 @@ class Handler
                 [$user['first_name'] ?: 'کاربر', $user['username'] ?: '', $user['telegram_id']],
                 $welcome
             );
-            $this->bot->sendMessage($from['id'], $welcome, Keyboard::mainMenu($isAdmin));
+            $this->bot->sendMessage($from['id'], $welcome, Keyboard::mainMenu($isAdmin, $from['id']));
             return;
         }
 
         if ($text === '/admin' || $text === '🛠 پنل مدیریت و آمار') {
             if (!$isAdmin) {
-                $this->bot->sendMessage($from['id'], "🚫 شما دسترسی به بخش مدیریت ندارید.", Keyboard::mainMenu(false));
+                $this->bot->sendMessage($from['id'], "🚫 شما دسترسی به بخش مدیریت ندارید.", Keyboard::mainMenu(false, $from['id']));
                 return;
             }
             $this->showAdminDashboard($from['id']);
@@ -117,18 +117,18 @@ class Handler
 
         if ($text === $btnHelp || $text === '/help') {
             $helpMsg = Setting::get('help_msg', 'راهنمای اتصال');
-            $this->bot->sendMessage($from['id'], $helpMsg, Keyboard::mainMenu());
+            $this->bot->sendMessage($from['id'], $helpMsg, Keyboard::mainMenu($isAdmin, $from['id']));
             return;
         }
 
         if ($text === $btnSupport || $text === '/support') {
             $supportMsg = Setting::get('support_text', 'پشتیبانی');
-            $this->bot->sendMessage($from['id'], $supportMsg, Keyboard::mainMenu());
+            $this->bot->sendMessage($from['id'], $supportMsg, Keyboard::mainMenu($isAdmin, $from['id']));
             return;
         }
 
         // Default response
-        $this->bot->sendMessage($from['id'], "لطفا یک گزینه را از منوی زیر انتخاب نمایید:", Keyboard::mainMenu());
+        $this->bot->sendMessage($from['id'], "لطفا یک گزینه را از منوی زیر انتخاب نمایید:", Keyboard::mainMenu($isAdmin, $from['id']));
     }
 
     private function showAdminDashboard(int|string $chatId): void
@@ -210,7 +210,7 @@ class Handler
     {
         $services = Service::getUserServices($user['id']);
         if (empty($services)) {
-            $this->bot->sendMessage($user['telegram_id'], "شما هیچ سرویس فعالی ندارید. می‌توانید از بخش خرید اشتراک یک سرویس تهیه کنید.", Keyboard::mainMenu());
+            $this->bot->sendMessage($user['telegram_id'], "شما هیچ سرویس فعالی ندارید. می‌توانید از بخش خرید اشتراک یک سرویس تهیه کنید.", Keyboard::mainMenu(User::isAdmin($user['telegram_id']), $user['telegram_id']));
             return;
         }
 
@@ -236,7 +236,7 @@ class Handler
         }
         $text .= "<i>(روی شماره کارت بزنید تا کپی شود)</i>";
 
-        $this->bot->sendMessage($chatId, $text, Keyboard::mainMenu());
+        $this->bot->sendMessage($chatId, $text, Keyboard::mainMenu(User::isAdmin($chatId), $chatId));
     }
 
     private function handleReceiptSubmission(array $user, array $message): void
@@ -244,10 +244,11 @@ class Handler
         $stepData = User::getStepData($user);
         $planId = (int)($stepData['plan_id'] ?? 0);
         $plan = Plan::find($planId);
+        $isAdmin = User::isAdmin($user['telegram_id']);
 
         if (!$plan) {
             User::setStep($user['id'], 'idle');
-            $this->bot->sendMessage($user['telegram_id'], "خطایی در پلن انتخابی رخ داد. لطفاً مجدداً خرید را انجام دهید.", Keyboard::mainMenu());
+            $this->bot->sendMessage($user['telegram_id'], "خطایی در پلن انتخابی رخ داد. لطفاً مجدداً خرید را انجام دهید.", Keyboard::mainMenu($isAdmin, $user['telegram_id']));
             return;
         }
 
@@ -275,9 +276,9 @@ class Handler
             $msg .= "💰 مبلغ: <b>" . number_format($plan['price']) . " تومان</b>\n\n";
             $msg .= "⏳ کارشناسان ما پس از بررسی فیش، اشتراک شما را صادر خواهند کرد. کانفیگ بلافاصله در همین ربات برای شما ارسال می‌شود.";
 
-            $this->bot->sendMessage($user['telegram_id'], $msg, Keyboard::mainMenu());
+            $this->bot->sendMessage($user['telegram_id'], $msg, Keyboard::mainMenu($isAdmin, $user['telegram_id']));
         } catch (Exception $e) {
-            $this->bot->sendMessage($user['telegram_id'], "خطا در ثبت سفارش: " . $e->getMessage(), Keyboard::mainMenu());
+            $this->bot->sendMessage($user['telegram_id'], "خطا در ثبت سفارش: " . $e->getMessage(), Keyboard::mainMenu($isAdmin, $user['telegram_id']));
         }
     }
 
@@ -361,9 +362,9 @@ class Handler
                     receiptPhoto: null
                 );
                 PaymentService::approveOrder($orderId);
-                $this->bot->sendMessage($chatId, "✅ <b>کانفیگ اختصاصی تست سرور با موفقیت ایجاد و برای شما ارسال شد!</b>", Keyboard::mainMenu(true));
+                $this->bot->sendMessage($chatId, "✅ <b>کانفیگ اختصاصی تست سرور با موفقیت ایجاد و برای شما ارسال شد!</b>", Keyboard::mainMenu(true, $chatId));
             } catch (Exception $e) {
-                $this->bot->sendMessage($chatId, "❌ خطا در ساخت آنی کانفیگ روی سرور:\n" . $e->getMessage(), Keyboard::mainMenu(true));
+                $this->bot->sendMessage($chatId, "❌ خطا در ساخت آنی کانفیگ روی سرور:\n" . $e->getMessage(), Keyboard::mainMenu(true, $chatId));
             }
             return;
         }
@@ -400,11 +401,11 @@ class Handler
                     receiptPhoto: null
                 );
                 PaymentService::approveOrder($orderId);
-                $this->bot->sendMessage($chatId, "🎉 <b>مبلغ {$price} تومان از کیف پول کسر و اشتراک فوراً صادر شد!</b>", Keyboard::mainMenu($isAdmin));
+                $this->bot->sendMessage($chatId, "🎉 <b>مبلغ {$price} تومان از کیف پول کسر و اشتراک فوراً صادر شد!</b>", Keyboard::mainMenu($isAdmin, $chatId));
             } catch (Exception $e) {
                 // Refund balance
                 User::addBalance($user['id'], $price);
-                $this->bot->sendMessage($chatId, "❌ خطا در فعالسازی خودکار در سرور:\n" . $e->getMessage() . "\nمبلغ کسر شده به کیف پول شما برگشت داده شد.", Keyboard::mainMenu($isAdmin));
+                $this->bot->sendMessage($chatId, "❌ خطا در فعالسازی خودکار در سرور:\n" . $e->getMessage() . "\nمبلغ کسر شده به کیف پول شما برگشت داده شد.", Keyboard::mainMenu($isAdmin, $chatId));
             }
             return;
         }
@@ -469,7 +470,7 @@ class Handler
             }
 
             $this->bot->answerCallbackQuery($callbackId);
-            $this->bot->sendMessage($chatId, $text, Keyboard::mainMenu());
+            $this->bot->sendMessage($chatId, $text, Keyboard::mainMenu($isAdmin, $chatId));
 
             // If WireGuard conf exists, send the file as document
             if (!empty($service['wireguard_conf'])) {
@@ -529,7 +530,7 @@ class Handler
         if ($data === 'cancel_order' || $data === 'back_to_main') {
             User::setStep($user['id'], 'idle');
             $this->bot->answerCallbackQuery($callbackId);
-            $this->bot->sendMessage($chatId, "به منوی اصلی بازگشتید.", Keyboard::mainMenu($isAdmin));
+            $this->bot->sendMessage($chatId, "به منوی اصلی بازگشتید.", Keyboard::mainMenu($isAdmin, $chatId));
             return;
         }
 

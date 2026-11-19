@@ -10,7 +10,7 @@ class Keyboard
     /**
      * Main Menu Reply Keyboard built dynamically from database button layout & positions
      */
-    public static function mainMenu(bool $isAdmin = false): array
+    public static function mainMenu(bool $isAdmin = false, int|string $telegramId = ''): array
     {
         $miniAppUrl = Setting::get('miniapp_url');
         $grid = BotButton::getActiveGrid();
@@ -23,11 +23,15 @@ class Keyboard
         foreach ($grid as $rowNum => $buttonsInRow) {
             $row = [];
             foreach ($buttonsInRow as $btn) {
-                // If this is the MiniApp button and URL is configured, attach WebApp
+                // If this is the MiniApp button and URL is configured, attach WebApp with user_id parameter
                 if ($btn['key'] === 'btn_miniapp' && !empty($miniAppUrl)) {
+                    $appUrl = $miniAppUrl;
+                    if (!empty($telegramId)) {
+                        $appUrl .= (str_contains($appUrl, '?') ? '&' : '?') . 'user_id=' . $telegramId;
+                    }
                     $row[] = [
                         'text' => $btn['title'],
-                        'web_app' => ['url' => $miniAppUrl]
+                        'web_app' => ['url' => $appUrl]
                     ];
                 } else {
                     $row[] = [
@@ -42,7 +46,12 @@ class Keyboard
 
         // Fallback default if no buttons configured
         if (empty($keyboard)) {
+            $appUrl = $miniAppUrl;
+            if (!empty($telegramId) && !empty($appUrl)) {
+                $appUrl .= (str_contains($appUrl, '?') ? '&' : '?') . 'user_id=' . $telegramId;
+            }
             $keyboard = [
+                !empty($appUrl) ? [['text' => '🚀 ورود به مینی‌اپ', 'web_app' => ['url' => $appUrl]]] : [['text' => '🚀 ورود به مینی‌اپ']],
                 [['text' => '🛍 خرید اشتراک جدید'], ['text' => '📱 سرویس‌های فعال من']],
                 [['text' => '📋 تعرفه و پلن‌ها'], ['text' => '💳 کارت به کارت و شارژ']],
                 [['text' => '📖 راهنمای اتصال'], ['text' => '📞 پشتیبانی تلگرام']]
