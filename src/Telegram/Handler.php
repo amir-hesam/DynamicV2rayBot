@@ -59,6 +59,31 @@ class Handler
             return;
         }
 
+        if ($user['step'] === 'waiting_report_group_id') {
+            $groupId = trim($text);
+            if (empty($groupId) || (!str_starts_with($groupId, '-') && !is_numeric($groupId))) {
+                $this->bot->sendMessage($from['id'], "❌ شناسه گروه نامعتبر است. شناسه گروه باید با - شروع شود (مثال: <code>-1001234567890</code>). لطفاً مجدداً ارسال کنید یا لغو نمایید:", Keyboard::cancelKeyboard());
+                return;
+            }
+
+            $this->bot->sendMessage($from['id'], "⏳ <b>در حال تست اتصال و ساخت خودکار ۱۰ تاپیک گزارشات در گروه...</b>");
+            $res = \App\Services\ReportHelper::syncTopics($groupId);
+
+            if (!empty($res['success'])) {
+                User::setStep($user['id'], 'idle');
+                $msg = "✅ <b>گروه گزارشات با موفقیت متصل و همگام شد!</b>\n\n";
+                $msg .= "تعداد ۱۰ تاپیک تخصصی ایجاد شدند:\n";
+                foreach ($res['topics'] as $t) {
+                    $msg .= "• {$t['name']} (ID: <code>" . ($t['thread_id'] ?? 'فعال') . "</code>)\n";
+                }
+                $msg .= "\nاز این پس تمامی گزارش‌های خرید، تمدید، تراکنش مالی، تست، خطاها و بکاپ‌های دیتابیس مستقیماً در تاپیک‌های اختصاصی این گروه ثبت خواهند شد.";
+                $this->bot->sendMessage($from['id'], $msg, Keyboard::mainMenu(true, $from['id']));
+            } else {
+                $this->bot->sendMessage($from['id'], "❌ <b>خطا در ساخت تاپیک‌ها:</b>\n" . ($res['error'] ?? 'خطای نامشخص') . "\n\nلطفاً از ادمین بودن ربات و روشن بودن گزینه Topics در تنظیمات گروه اطمینان حاصل کرده و مجدداً شناسه را بفرستید:", Keyboard::cancelKeyboard());
+            }
+            return;
+        }
+
         $isAdmin = User::isAdmin($from['id']);
 
         // Handle commands and customizable menu buttons
@@ -154,6 +179,10 @@ class Handler
         if ($pendingOrders > 0) {
             $inline[] = [['text' => '⏳ بررسی و تایید سفارشات (' . $pendingOrders . ')', 'callback_data' => 'admin_list_pending']];
         }
+        $inline[] = [
+            ['text' => '📢 تنظیم گروه گزارشات (Topics)', 'callback_data' => 'admin_setup_report_group'],
+            ['text' => '💾 بکاپ فوری دیتابیس', 'callback_data' => 'admin_trigger_backup']
+        ];
         $inline[] = [['text' => '🌐 ورود به پنل تحت وب مدیریت', 'url' => $webUrl]];
         $inline[] = [['text' => '🔙 بازگشت به منوی اصلی', 'callback_data' => 'back_to_main']];
 
@@ -523,6 +552,39 @@ class Handler
                 $this->bot->editMessageText($chatId, $messageId, "❌ <b>سفارش #{$orderId} رد شد.</b>");
             } catch (Exception $e) {
                 $this->bot->answerCallbackQuery($callbackId, "خطا: " . $e->getMessage(), true);
+            }
+            return;
+        }
+
+        // Admin Setup Report Group
+        if ($data === 'admin_setup_report_group') {
+            if (!$isAdmin) {
+                $this->bot->answerCallbackQuery($callbackId, "عدم دسترسی", true);
+                return;
+            }
+            $this->bot->answerCallbackQuery($callbackId);
+            User::setStep($user['id'], 'waiting_report_group_id');
+            $msg = "📢 <b>اتصال و راه‌اندازی گروه گزارشات (Supergroup با قابلیت تاپیک):</b>\n\n";
+            $msg .= "لطفاً شناسه عددی سوپرگروه را ارسال نمایید (مثال: <code>-1001234567890</code>).\n\n";
+            $msg .= "⚠️ <b>نکات مهم قبل از ارسال:</b>\n";
+            $msg .= "۱. گزینه <b>Topics</b> در تنظیمات گروه تلگرام باید حتماً فعال باشد.\n";
+            $msg .= "۲. ربات را در گروه عضو کرده و به آن دسترسی <b>ادمین (مدیریت تاپیک‌ها)</b> بدهید.";
+            $this->bot->sendMessage($chatId, $msg, Keyboard::cancelKeyboard());
+            return;
+        }
+
+        // Admin Trigger Backup
+        if ($data === 'admin_trigger_backup') {
+            if (!$isAdmin) {
+                $this->bot->answerCallbackQuery($callbackId, "عدم دسترسی", true);
+                return;
+            }
+            $this->bot->answerCallbackQuery($callbackId, "در حال تولید و ارسال فایل بکاپ...", false);
+            $res = \App\Services\BackupService::runBackupJob();
+            if ($res['success']) {
+                $this->bot->sendMessage($chatId, "✅ <b>پشتیبان دیتابیس با موفقیت تولید شد و به تاپیک بکاپ در گروه / پیام‌های ذخیره ارسال گردید!</b> 💾");
+            } else {
+                $this->bot->sendMessage($chatId, "❌ <b>خطا در تهیه پشتیبان:</b> " . ($res['error'] ?? 'خطای نامشخص'));
             }
             return;
         }

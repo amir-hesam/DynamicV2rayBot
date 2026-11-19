@@ -40,8 +40,32 @@ class BackupService
             return null;
         }
 
-        // 2. MySQL / MariaDB Pure PHP PDO Dump (Identical to MirzaBot backupDumpDatabaseWithPdo)
+        // 2. MySQL / MariaDB Dump
         $targetFile = $tempDir . "/backup_{$dateStr}.sql";
+        $mysqlConf = $config['mysql'] ?? [];
+        $dbHost = $mysqlConf['host'] ?? 'localhost';
+        $dbUser = $mysqlConf['username'] ?? '';
+        $dbPass = $mysqlConf['password'] ?? '';
+        $dbName = $mysqlConf['database'] ?? '';
+
+        // Try mysqldump CLI first if exec is available (exact MirzaBot pattern)
+        $isExecAvailable = function_exists('exec') && !in_array('exec', array_map('trim', explode(',', ini_get('disable_functions') ?: '')));
+        if ($isExecAvailable && !empty($dbName)) {
+            $cmd = 'mysqldump -h ' . escapeshellarg($dbHost)
+                . ' -u ' . escapeshellarg($dbUser)
+                . ' -p' . escapeshellarg($dbPass)
+                . ' --no-tablespaces --default-character-set=utf8mb4 ' . escapeshellarg($dbName)
+                . ' > ' . escapeshellarg($targetFile) . ' 2>/dev/null';
+            $output = [];
+            $returnVar = 0;
+            @exec($cmd, $output, $returnVar);
+            if ($returnVar === 0 && is_file($targetFile) && filesize($targetFile) > 0) {
+                return $targetFile;
+            }
+            @unlink($targetFile);
+        }
+
+        // Fallback: Pure PHP PDO Dump (Universal compatibility on shared cPanel hosting)
         $pdo = Database::getInstance();
         $handle = @fopen($targetFile, 'w');
 

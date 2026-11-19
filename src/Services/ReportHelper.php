@@ -7,37 +7,48 @@ use App\Telegram\Bot;
 
 class ReportHelper
 {
-    // The 10 standard topics from D:\PanelSaz & MirzaBot
-    const TOPIC_PURCHASE   = 'topic_purchase';      // 📣 گزارش خرید
-    const TOPIC_TEST       = 'topic_test';          // 🧪 گزارش اکانت تست
-    const TOPIC_BACKUP     = 'topic_backup';        // 💾 بک اپ ربات
-    const TOPIC_NOTIFY     = 'topic_notify';        // 📢 اطلاع رسانی
-    const TOPIC_DAILY      = 'topic_daily';         // 📊 گزارش شبانه
-    const TOPIC_FINANCIAL  = 'topic_financial';     // 💰 گزارش مالی
-    const TOPIC_OTHER      = 'topic_other';         // 👥 سایر گزارشات
-    const TOPIC_ERROR      = 'topic_error';         // 🚨 گزارش خطا
-    const TOPIC_RENEWAL    = 'topic_renewal';       // 🔄 گزارش تمدید و خدمات
-    const TOPIC_COMMISSION = 'topic_commission';    // 💎 گزارش پورسانت ها
+    // The 10 standard topics matching MirzaBot
+    const TOPIC_BUY        = 'buyreport';          // 🛒 خریدها و سفارشات جدید
+    const TOPIC_SERVICE    = 'otherservice';       // ⚡ سرویس‌ها و تمدید اشتراک
+    const TOPIC_TEST       = 'reporttest';         // 🧪 اکانت‌های تست و آزمایشی
+    const TOPIC_PAYMENT    = 'paymentreport';      // 💳 پرداخت‌ها و واریزی‌های شتاب
+    const TOPIC_AFFILIATE  = 'porsantreport';      // 👥 بازاریابی و امور معرفین
+    const TOPIC_ERROR      = 'errorreport';        // 🚨 خطاها و لاگ‌های سیستم
+    const TOPIC_NIGHT      = 'reportnight';        // 🌙 آمار روزانه و شبانه
+    const TOPIC_CRON       = 'reportcron';         // ⏱ وضعیت کرون‌جاب‌ها
+    const TOPIC_BACKUP     = 'backupfile';         // 💾 فایل‌های پشتیبان دیتابیس
+    const TOPIC_OTHER      = 'otherreport';        // 📋 سایر گزارشات و رویدادها
+
+    // Backward compatibility aliases
+    const TOPIC_PURCHASE   = 'buyreport';
+    const TOPIC_FINANCIAL  = 'paymentreport';
+    const TOPIC_DAILY      = 'reportnight';
+    const TOPIC_COMMISSION = 'porsantreport';
+    const TOPIC_RENEWAL    = 'otherservice';
+    const TOPIC_NOTIFY     = 'otherreport';
 
     public static function getTopicDefinitions(): array
     {
         return [
-            self::TOPIC_PURCHASE   => ['name' => '📣 گزارش خرید',        'color' => 0x6FB9F0],
-            self::TOPIC_TEST       => ['name' => '🧪 گزارش اکانت تست',   'color' => 0xFFD67E],
-            self::TOPIC_BACKUP     => ['name' => '💾 بک اپ ربات',         'color' => 0xCB86DB],
-            self::TOPIC_NOTIFY     => ['name' => '📢 اطلاع رسانی',        'color' => 0x8EEE98],
-            self::TOPIC_DAILY      => ['name' => '📊 گزارش شبانه',        'color' => 0xFF93B2],
-            self::TOPIC_FINANCIAL  => ['name' => '💰 گزارش مالی',         'color' => 0xFB6F5F],
-            self::TOPIC_OTHER      => ['name' => '👥 سایر گزارشات',       'color' => 0x6FB9F0],
-            self::TOPIC_ERROR      => ['name' => '🚨 گزارش خطا',         'color' => 0xFB6F5F],
-            self::TOPIC_RENEWAL    => ['name' => '🔄 گزارش تمدید و خدمات', 'color' => 0xFFD67E],
-            self::TOPIC_COMMISSION => ['name' => '💎 گزارش پورسانت ها',    'color' => 0x8EEE98],
+            self::TOPIC_BUY       => ['name' => '🛒 خریدها و سفارشات جدید',    'color' => 0x6FB9F0],
+            self::TOPIC_SERVICE   => ['name' => '⚡ سرویس‌ها و تمدید اشتراک',  'color' => 0xFFD67E],
+            self::TOPIC_TEST      => ['name' => '🧪 اکانت‌های تست و آزمایشی', 'color' => 0x8EEE98],
+            self::TOPIC_PAYMENT   => ['name' => '💳 پرداخت‌ها و واریزی‌ها',   'color' => 0xFB6F5F],
+            self::TOPIC_AFFILIATE => ['name' => '👥 بازاریابی و امور معرفین', 'color' => 0xCB86DB],
+            self::TOPIC_ERROR     => ['name' => '🚨 خطاها و لاگ‌های سیستم',    'color' => 0xFB6F5F],
+            self::TOPIC_NIGHT     => ['name' => '🌙 آمار روزانه و شبانه',      'color' => 0xFF93B2],
+            self::TOPIC_CRON      => ['name' => '⏱ وضعیت کرون‌جاب‌ها',       'color' => 0x8EEE98],
+            self::TOPIC_BACKUP    => ['name' => '💾 فایل‌های پشتیبان دیتابیس', 'color' => 0xCB86DB],
+            self::TOPIC_OTHER     => ['name' => '📋 سایر گزارشات و رویدادها', 'color' => 0x6FB9F0],
         ];
     }
 
     public static function getGroupId(): ?string
     {
         $id = Setting::get('report_group_id');
+        if (empty($id)) {
+            $id = Setting::get('Channel_Report');
+        }
         if (empty($id)) {
             $id = Setting::get('telegram_report_group_id');
         }
@@ -46,16 +57,29 @@ class ReportHelper
 
     public static function getTopicThreadId(string $topicKey): ?int
     {
+        // Try direct key, e.g. buyreport or backupfile
         $val = Setting::get($topicKey);
         if ($val === null || $val === '') {
             $val = Setting::get($topicKey . '_id');
         }
+
+        // Aliases fallback
+        if (($val === null || $val === '') && $topicKey === self::TOPIC_BACKUP) {
+            $val = Setting::get('topic_backup') ?: Setting::get('backupfile');
+        }
+        if (($val === null || $val === '') && $topicKey === self::TOPIC_BUY) {
+            $val = Setting::get('topic_purchase') ?: Setting::get('buyreport');
+        }
+        if (($val === null || $val === '') && $topicKey === self::TOPIC_PAYMENT) {
+            $val = Setting::get('topic_financial') ?: Setting::get('paymentreport');
+        }
+
         return ($val !== null && is_numeric($val) && (int)$val > 0) ? (int)$val : null;
     }
 
     /**
      * Create and synchronize all 10 topics in the Telegram Forum group
-     * Based on MirzaBot syncReportTopics & PanelSaz
+     * Exact MirzaBot admin.php topic creation logic with forum check
      */
     public static function syncTopics(string $chatId): array
     {
@@ -63,9 +87,28 @@ class ReportHelper
         $definitions = self::getTopicDefinitions();
         $results = [];
 
-        // Save report group ID
-        Setting::set('report_group_id', $chatId);
+        // 1. Test sending a message to verify bot membership & admin permissions
+        $testRes = $bot->sendMessage($chatId, "🔄 <b>در حال بررسی اتصال ربات و ساخت تاپیک‌های گروه گزارشات...</b>");
+        if (empty($testRes['ok'])) {
+            return [
+                'success' => false,
+                'error' => 'ربات امکان ارسال پیام به این گروه را ندارد. اطمینان حاصل کنید ربات در گروه عضو و ادمین است: ' . ($testRes['description'] ?? 'عدم دسترسی')
+            ];
+        }
 
+        $chat = $testRes['result']['chat'] ?? [];
+        if (empty($chat['is_forum'])) {
+            return [
+                'success' => false,
+                'error' => 'گروه ارسالی سوپرگروه با قابلیت تاپیک (Forum / Topics) نیست! لطفاً در تنظیمات گروه تلگرام گزینه Topics را فعال نمایید.'
+            ];
+        }
+
+        // Save report group ID in both modern & MirzaBot keys
+        Setting::set('report_group_id', $chatId);
+        Setting::set('Channel_Report', $chatId);
+
+        $createdCount = 0;
         foreach ($definitions as $key => $info) {
             $name = $info['name'];
             $color = $info['color'] ?? null;
@@ -84,16 +127,19 @@ class ReportHelper
                 }
             }
 
-            // Create new forum topic
+            // Create new forum topic via Telegram Bot API (MirzaBot pattern)
             $createRes = $bot->createForumTopic($chatId, $name, $color);
             if (!empty($createRes['ok']) && !empty($createRes['result']['message_thread_id'])) {
                 $threadId = (int)$createRes['result']['message_thread_id'];
+                // Save by Mirza key and legacy key
                 Setting::set($key, (string)$threadId);
+                Setting::set('topic_' . $key, (string)$threadId);
                 $results[$key] = [
                     'status' => 'created',
                     'thread_id' => $threadId,
                     'name' => $name,
                 ];
+                $createdCount++;
             } else {
                 $results[$key] = [
                     'status' => 'failed',
@@ -103,10 +149,16 @@ class ReportHelper
             }
         }
 
+        // Send a pin welcome message into General topic
+        $welcomeText = "✅ <b>گروه گزارشات ربات هوشمند با موفقیت پیکربندی شد!</b>\n\n";
+        $welcomeText .= "تعداد ۱۰ تاپیک تخصصی جهت ثبت رویدادها، خریدها، تراکنش‌های مالی، خطاها و بکاپ‌های روزانه آماده به کار هستند.";
+        $bot->sendMessage($chatId, $welcomeText);
+
         return [
             'success' => true,
             'chat_id' => $chatId,
             'topics' => $results,
+            'created_count' => $createdCount,
         ];
     }
 

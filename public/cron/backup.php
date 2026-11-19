@@ -1,28 +1,23 @@
 <?php
-
 /**
- * Backup Cron Job for VPN Bot (MirzaBot compatible)
- * Pure PHP 8.1+
- * Can be executed via CLI: php cron/backup.php
- * Or via Web: https://yourdomain.com/cron/backup.php?key=YOUR_SECRET
+ * MirzaBot Compatible Web/Cron Backup Job
+ * URL: https://yourdomain.com/cron/backup.php?key=YOUR_SECRET
  */
 
-chdir(__DIR__ . '/..');
+chdir(__DIR__ . '/../..');
 
-if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
-    require_once __DIR__ . '/../vendor/autoload.php';
+if (file_exists(__DIR__ . '/../../vendor/autoload.php')) {
+    require_once __DIR__ . '/../../vendor/autoload.php';
 } else {
-    require_once __DIR__ . '/../src/autoload.php';
+    require_once __DIR__ . '/../../src/autoload.php';
 }
 
 use App\Core\Database;
 use App\Models\Setting;
 use App\Services\BackupService;
 
-// Ensure database schema is initialized
 Database::initSchema();
 
-// Verify key if accessed via HTTP
 if (php_sapi_name() !== 'cli') {
     $cronSecret = Setting::get('cron_secret_key');
     if (!empty($cronSecret)) {
@@ -34,7 +29,6 @@ if (php_sapi_name() !== 'cli') {
     }
 }
 
-// Execute Backup Job
 $res = BackupService::runBackupJob();
 
 if (php_sapi_name() === 'cli') {
