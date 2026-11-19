@@ -139,6 +139,7 @@ class MigrationService
                             'balance' => $balance,
                         ]);
                         $userMap[$tgId] = (int)$existingId;
+                        $stats['users']++;
                     } else {
                         $stmtUserInsert->execute([
                             'telegram_id' => $tgId,
@@ -433,6 +434,7 @@ class MigrationService
                                 'sub_url' => $subUrl,
                                 'config_link' => $configLink,
                             ]);
+                        $stats['services']++;
                     } else {
                         $stmtServiceInsert->execute([
                             'user_id' => $userId,
@@ -487,6 +489,10 @@ class MigrationService
             // 1. Users
             $q = $sqlite->query("SELECT * FROM user");
             if (!$q) $q = $sqlite->query("SELECT * FROM users");
+            if (!$q) $q = $sqlite->query("SELECT * FROM bot_user");
+            if (!$q) $q = $sqlite->query("SELECT * FROM bot_users");
+            if (!$q) $q = $sqlite->query("SELECT * FROM member");
+            if (!$q) $q = $sqlite->query("SELECT * FROM members");
             if ($q) $users = $q->fetchAll();
 
             // 2. Panels
@@ -502,12 +508,6 @@ class MigrationService
             // 4. Invoices
             $q = $sqlite->query("SELECT * FROM invoice");
             if (!$q) $q = $sqlite->query("SELECT * FROM invoices");
-            if ($q) $invoices = $q->fetchAll();
-            $q = $sqlite->query("SELECT * FROM product");
-            if ($q) $products = $q->fetchAll();
-
-            // 4. Invoices
-            $q = $sqlite->query("SELECT * FROM invoice");
             if ($q) $invoices = $q->fetchAll();
 
             return [
@@ -554,10 +554,10 @@ class MigrationService
                     continue;
                 }
 
-                // Detect start of INSERT INTO or REPLACE INTO
-                if (preg_match('/^(?:INSERT(?:\s+IGNORE)?|REPLACE)\s+INTO\s+[`\'"]?([a-zA-Z0-9_]+)[`\'"]?/i', $trimmed, $m)) {
+                // Detect start of INSERT INTO or REPLACE INTO (supporting optional database prefix)
+                if (preg_match('/^(?:INSERT(?:\s+IGNORE)?|REPLACE)\s+INTO\s+(?:[`\'"]?[a-zA-Z0-9_]+[`\'"]?\.)?[`\'"]?([a-zA-Z0-9_]+)[`\'"]?/i', $trimmed, $m)) {
                     $tableCandidate = strtolower($m[1]);
-                    if (in_array($tableCandidate, ['user', 'users', 'marzban_panel', 'panels', 'product', 'products', 'invoice', 'invoices'])) {
+                    if (in_array($tableCandidate, ['user', 'users', 'bot_user', 'bot_users', 'member', 'members', 'marzban_panel', 'panels', 'product', 'products', 'invoice', 'invoices'])) {
                         $inStatement = true;
                         $currentTable = $tableCandidate;
                         $buffer = $line;
@@ -642,7 +642,7 @@ class MigrationService
         }
 
         $normTable = match ($table) {
-            'users' => 'user',
+            'users', 'bot_user', 'bot_users', 'member', 'members' => 'user',
             'panels' => 'marzban_panel',
             'products' => 'product',
             'invoices' => 'invoice',
@@ -690,6 +690,7 @@ class MigrationService
         $currentCell = '';
         $inParen = false;
         $inQuote = false;
+        $quoteChar = null;
         $wasQuoted = false;
         $len = strlen($sql);
 
@@ -711,14 +712,15 @@ class MigrationService
                     }
                     continue;
                 }
-                if ($c === "'") {
-                    // Check for standard SQL double-quote escape: ''
-                    if ($i + 1 < $len && $sql[$i + 1] === "'") {
-                        $currentCell .= "'";
+                if ($c === $quoteChar) {
+                    // Check for standard SQL double-quote escape: '' or ""
+                    if ($i + 1 < $len && $sql[$i + 1] === $quoteChar) {
+                        $currentCell .= $quoteChar;
                         $i++;
                         continue;
                     }
                     $inQuote = false;
+                    $quoteChar = null;
                     continue;
                 }
                 $currentCell .= $c;
@@ -726,8 +728,9 @@ class MigrationService
             }
 
             // Outside quotes
-            if ($c === "'") {
+            if ($c === "'" || $c === '"') {
                 $inQuote = true;
+                $quoteChar = $c;
                 $wasQuoted = true;
                 continue;
             }
