@@ -67,9 +67,10 @@ class User
         // If user matches admin_telegram_id but is_admin not set or low balance, upgrade
         if ($isAdmin && empty($user['is_admin'])) {
             $pdo = Database::getInstance();
-            $pdo->prepare("UPDATE users SET is_admin = 1, balance = GREATEST(balance, 10000000) WHERE id = ?")->execute([$user['id']]);
+            $newBal = max((int)$user['balance'], 10000000);
+            $pdo->prepare("UPDATE users SET is_admin = 1, balance = ? WHERE id = ?")->execute([$newBal, $user['id']]);
             $user['is_admin'] = 1;
-            $user['balance'] = max((int)$user['balance'], 10000000);
+            $user['balance'] = $newBal;
         }
 
         // Update profile information if changed

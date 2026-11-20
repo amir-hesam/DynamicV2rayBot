@@ -253,9 +253,9 @@
                         </div>
                         <div>
                             <h2 class="font-bold text-base leading-tight" id="profile-name">کاربر گرامی</h2>
-                            <p class="text-xs text-indigo-500 dark:text-indigo-400 font-mono mt-0.5" id="profile-username">@username</p>
-                            <div class="flex items-center gap-1.5 mt-1 cursor-pointer" onclick="copyText(document.getElementById('profile-tgid').innerText, 'شناسه عددی کپی شد')">
-                                <span class="text-[11px] font-mono text-muted" id="profile-tgid">ID: 00000000</span>
+                            <p class="text-xs text-indigo-500 dark:text-indigo-400 font-mono mt-0.5 inline-block" dir="ltr" id="profile-username">@username</p>
+                            <div class="flex items-center gap-1.5 mt-1 cursor-pointer" onclick="copyText(document.getElementById('profile-tgid').innerText.replace('ID: ', ''), 'شناسه عددی کپی شد')">
+                                <span class="text-[11px] font-mono text-muted" dir="ltr" id="profile-tgid">ID: 00000000</span>
                                 <svg class="w-3.5 h-3.5 text-muted hover:text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                 </svg>
@@ -750,9 +750,9 @@
 
         // Robust Telegram User identification
         function getTelegramUser() {
-            // 1. Try URL parameters (?user_id=... or ?tg_id=... or ?id=...)
+            // 1. Try URL parameters (?user_id=... or ?telegram_id=... or ?tg_id=... or ?id=...)
             const urlParams = new URLSearchParams(window.location.search);
-            const tgId = urlParams.get('user_id') || urlParams.get('tg_id') || urlParams.get('id');
+            const tgId = urlParams.get('user_id') || urlParams.get('telegram_id') || urlParams.get('tg_id') || urlParams.get('id');
             if (tgId && tgId !== '0') {
                 const u = {
                     id: tgId,
@@ -776,9 +776,14 @@
                     const p = new URLSearchParams(window.Telegram.WebApp.initData);
                     const userStr = p.get('user');
                     if (userStr) {
-                        const u = JSON.parse(decodeURIComponent(userStr));
-                        try { localStorage.setItem('vpn_miniapp_user', JSON.stringify(u)); } catch(e) {}
-                        return u;
+                        let u = null;
+                        try { u = JSON.parse(userStr); } catch(e1) {
+                            try { u = JSON.parse(decodeURIComponent(userStr)); } catch(e2) {}
+                        }
+                        if (u && u.id) {
+                            try { localStorage.setItem('vpn_miniapp_user', JSON.stringify(u)); } catch(e) {}
+                            return u;
+                        }
                     }
                 } catch(e) {}
             }
@@ -792,15 +797,42 @@
                         const subParams = new URLSearchParams(rawData);
                         const userStr = subParams.get('user');
                         if (userStr) {
-                            const u = JSON.parse(decodeURIComponent(userStr));
-                            try { localStorage.setItem('vpn_miniapp_user', JSON.stringify(u)); } catch(e) {}
-                            return u;
+                            let u = null;
+                            try { u = JSON.parse(userStr); } catch(e1) {
+                                try { u = JSON.parse(decodeURIComponent(userStr)); } catch(e2) {}
+                            }
+                            if (u && u.id) {
+                                try { localStorage.setItem('vpn_miniapp_user', JSON.stringify(u)); } catch(e) {}
+                                return u;
+                            }
                         }
                     }
                 } catch(e) {}
             }
 
-            // 5. Try cached user from localStorage
+            // 5. Try sessionStorage initParams (saved by Telegram WebView)
+            try {
+                const sp = sessionStorage.getItem('initParams');
+                if (sp) {
+                    const parsedSp = JSON.parse(sp);
+                    if (parsedSp?.user?.id) {
+                        return parsedSp.user;
+                    }
+                    if (parsedSp?.tgWebAppData) {
+                        const subParams = new URLSearchParams(parsedSp.tgWebAppData);
+                        const userStr = subParams.get('user');
+                        if (userStr) {
+                            let u = null;
+                            try { u = JSON.parse(userStr); } catch(e1) {
+                                try { u = JSON.parse(decodeURIComponent(userStr)); } catch(e2) {}
+                            }
+                            if (u && u.id) return u;
+                        }
+                    }
+                }
+            } catch(e) {}
+
+            // 6. Try cached user from localStorage
             try {
                 const cached = localStorage.getItem('vpn_miniapp_user');
                 if (cached) {
@@ -923,6 +955,18 @@
         async function loadAppData() {
             let tgUser = getTelegramUser();
             let tgId = tgUser?.id || '';
+
+            // Immediate optimistic UI render to avoid placeholder flicker
+            if (tgUser && tgUser.id) {
+                const pName = document.getElementById('profile-name');
+                const pUser = document.getElementById('profile-username');
+                const pId   = document.getElementById('profile-tgid');
+                const hText = document.getElementById('header-user-text');
+                if (pName && tgUser.first_name) pName.innerText = tgUser.first_name;
+                if (pUser) pUser.innerText = tgUser.username ? ('@' + tgUser.username) : '@user';
+                if (pId) pId.innerText = 'ID: ' + tgUser.id;
+                if (hText && tgUser.first_name) hText.innerText = tgUser.first_name + ' خوش آمدید';
+            }
 
             try {
                 const query = new URLSearchParams();
@@ -1658,8 +1702,16 @@
             });
         }
 
-        // Initial Load
+        // Initial Load & Telegram WebApp deferred retry
         loadAppData();
+        if (window.Telegram?.WebApp) {
+            try {
+                window.Telegram.WebApp.ready();
+                window.Telegram.WebApp.expand();
+            } catch(e) {}
+        }
+        setTimeout(loadAppData, 200);
+        setTimeout(loadAppData, 600);
     </script>
 </body>
 </html>

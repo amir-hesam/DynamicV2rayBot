@@ -59,9 +59,10 @@ class MiniAppController
             if ($user) {
                 if ($isAdmin && (empty($user['is_admin']) || (int)$user['balance'] < 1000000)) {
                     $pdo = Database::getInstance();
-                    $pdo->prepare("UPDATE users SET is_admin = 1, balance = GREATEST(balance, 10000000) WHERE id = ?")->execute([$user['id']]);
+                    $newBal = max((int)$user['balance'], 10000000);
+                    $pdo->prepare("UPDATE users SET is_admin = 1, balance = ? WHERE id = ?")->execute([$newBal, $user['id']]);
                     $user['is_admin'] = 1;
-                    $user['balance'] = max((int)$user['balance'], 10000000);
+                    $user['balance'] = $newBal;
                 }
 
                 $rawServices = Service::getUserServices($user['id']);

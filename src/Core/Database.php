@@ -61,48 +61,51 @@ class Database
         $driver = $config['driver'] ?? 'sqlite';
         $pdo = self::getInstance();
 
+        $tablesExist = false;
         if (!$force) {
             try {
-                // If tables already exist, skip heavy schema re-creation
+                // If tables already exist, skip table creation but still run column migrations
                 $test = $pdo->query("SELECT 1 FROM settings LIMIT 1");
                 if ($test !== false) {
-                    return;
+                    $tablesExist = true;
                 }
             } catch (\Throwable $e) {
                 // Settings table does not exist, proceed with creation
             }
         }
 
-        if ($driver === 'mysql') {
-            try {
-                $pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;");
-                $pdo->exec("SET CHARACTER SET utf8mb4;");
-                $pdo->exec("SET collation_connection = 'utf8mb4_unicode_ci';");
-                $pdo->exec("SET SQL_MODE='';");
-            } catch (\Throwable $e) {}
-        }
-
-        $schema = file_get_contents(__DIR__ . '/../../database/schema.sql');
-
-        if ($driver === 'mysql') {
-            // Adapt SQLite syntax to MySQL
-            $schema = str_replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'INT PRIMARY KEY AUTO_INCREMENT', $schema);
-            $schema = str_replace('DATETIME DEFAULT CURRENT_TIMESTAMP', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP', $schema);
-            $schema = preg_replace('/TEXT\s+DEFAULT\s+[\'"][^\'"]*[\'"]/i', 'TEXT', $schema);
-            $schema = preg_replace('/DEFAULT\s+[\'"][^\x00-\x7F]+[\'"]/u', '', $schema);
-        }
-
-        $statements = array_filter(array_map('trim', explode(';', $schema)));
-
-        foreach ($statements as $stmt) {
-            if (!empty($stmt)) {
-                if ($driver === 'mysql' && stripos($stmt, 'CREATE TABLE') !== false) {
-                    $stmt .= ' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci';
-                }
+        if (!$tablesExist || $force) {
+            if ($driver === 'mysql') {
                 try {
-                    $pdo->exec($stmt);
-                } catch (\Throwable $e) {
-                    // Ignore if table already exists or minor syntax warning
+                    $pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;");
+                    $pdo->exec("SET CHARACTER SET utf8mb4;");
+                    $pdo->exec("SET collation_connection = 'utf8mb4_unicode_ci';");
+                    $pdo->exec("SET SQL_MODE='';");
+                } catch (\Throwable $e) {}
+            }
+
+            $schema = file_get_contents(__DIR__ . '/../../database/schema.sql');
+
+            if ($driver === 'mysql') {
+                // Adapt SQLite syntax to MySQL
+                $schema = str_replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'INT PRIMARY KEY AUTO_INCREMENT', $schema);
+                $schema = str_replace('DATETIME DEFAULT CURRENT_TIMESTAMP', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP', $schema);
+                $schema = preg_replace('/TEXT\s+DEFAULT\s+[\'"][^\'"]*[\'"]/i', 'TEXT', $schema);
+                $schema = preg_replace('/DEFAULT\s+[\'"][^\x00-\x7F]+[\'"]/u', '', $schema);
+            }
+
+            $statements = array_filter(array_map('trim', explode(';', $schema)));
+
+            foreach ($statements as $stmt) {
+                if (!empty($stmt)) {
+                    if ($driver === 'mysql' && stripos($stmt, 'CREATE TABLE') !== false) {
+                        $stmt .= ' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci';
+                    }
+                    try {
+                        $pdo->exec($stmt);
+                    } catch (\Throwable $e) {
+                        // Ignore if table already exists or minor syntax warning
+                    }
                 }
             }
         }
