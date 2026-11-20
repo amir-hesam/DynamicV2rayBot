@@ -133,32 +133,58 @@
         html.theme-light .text-muted { color: #64748b; }
         html.theme-light .bg-subtle { background-color: #f1f5f9; }
 
+        /* Tab Button Ripple & Transition matching Pasargad */
+        .tab-btn {
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .tab-btn.active {
+            transform: translateY(-2px);
+        }
+
         /* Custom Scrollbar */
         ::-webkit-scrollbar { display: none; }
 
-        /* Slider Thumb Styling */
-        input[type=range] {
+        /* Custom Modern Range Slider with Animated Track & Glowing Thumb matching Pasargad */
+        input[type=range], #custom-traffic-slider, #custom-days-slider {
             -webkit-appearance: none;
-            background: transparent;
+            appearance: none;
+            width: 100%;
+            height: 8px;
+            border-radius: 9999px;
+            outline: none;
+            cursor: pointer;
+            transition: background 0.15s ease-out;
+            background: linear-gradient(to left, #6366f1 0%, #8b5cf6 20%, rgba(30, 41, 59, 0.7) 20%, rgba(30, 41, 59, 0.7) 100%);
         }
-        input[type=range]::-webkit-slider-thumb {
+        input[type=range]::-webkit-slider-thumb, #custom-traffic-slider::-webkit-slider-thumb, #custom-days-slider::-webkit-slider-thumb {
             -webkit-appearance: none;
-            height: 22px;
+            appearance: none;
             width: 22px;
+            height: 22px;
             border-radius: 50%;
-            background: #6366f1;
+            background: linear-gradient(135deg, #818cf8 0%, #4f46e5 100%);
+            border: 3px solid #ffffff;
+            box-shadow: 0 0 14px rgba(99, 102, 241, 0.8), 0 2px 6px rgba(0, 0, 0, 0.35);
             cursor: pointer;
-            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.5);
-            border: 2px solid #ffffff;
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
         }
-        input[type=range]::-moz-range-thumb {
-            height: 22px;
+        input[type=range]:active::-webkit-slider-thumb, #custom-traffic-slider:active::-webkit-slider-thumb, #custom-days-slider:active::-webkit-slider-thumb {
+            transform: scale(1.3);
+            box-shadow: 0 0 22px rgba(129, 140, 248, 1), 0 4px 10px rgba(0, 0, 0, 0.45);
+        }
+        input[type=range]::-moz-range-thumb, #custom-traffic-slider::-moz-range-thumb, #custom-days-slider::-moz-range-thumb {
             width: 22px;
+            height: 22px;
             border-radius: 50%;
-            background: #6366f1;
+            background: linear-gradient(135deg, #818cf8 0%, #4f46e5 100%);
+            border: 3px solid #ffffff;
+            box-shadow: 0 0 14px rgba(99, 102, 241, 0.8), 0 2px 6px rgba(0, 0, 0, 0.35);
             cursor: pointer;
-            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.5);
-            border: 2px solid #ffffff;
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+        }
+        input[type=range]:active::-moz-range-thumb, #custom-traffic-slider:active::-moz-range-thumb, #custom-days-slider:active::-moz-range-thumb {
+            transform: scale(1.3);
+            box-shadow: 0 0 22px rgba(129, 140, 248, 1), 0 4px 10px rgba(0, 0, 0, 0.45);
         }
     </style>
 </head>
@@ -216,8 +242,10 @@
         <!-- TAB 1: حساب کاربری (PROFILE) [Rightmost Tab 1]                  -->
         <!-- ============================================================== -->
         <section id="tab-profile" class="space-y-4">
-            <!-- Profile Hero Card -->
-            <div class="app-card rounded-3xl p-5 relative overflow-hidden space-y-4">
+            <!-- Profile Hero Card (Pasargad Style) -->
+            <div class="rounded-3xl p-5 bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-indigo-500/20 backdrop-blur-xl relative overflow-hidden shadow-sm dark:shadow-xl space-y-4 transition-colors">
+                <div class="absolute -left-6 -bottom-6 w-32 h-32 rounded-full bg-indigo-500/10 blur-2xl pointer-events-none"></div>
+                <div class="absolute -right-6 -top-6 w-32 h-32 rounded-full bg-indigo-500/10 blur-2xl pointer-events-none"></div>
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3.5">
                         <div id="profile-avatar" class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-600 to-indigo-500 text-white flex items-center justify-center text-2xl font-bold shadow-lg shadow-indigo-500/20">
@@ -248,7 +276,7 @@
                             <span class="text-xs text-muted">تومان</span>
                         </div>
                     </div>
-                    <button onclick="switchTab('wallet')" class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 text-white text-xs font-semibold shadow-md shadow-emerald-500/20 hover:opacity-90 active:scale-95 transition">
+                    <button onclick="switchTab('wallet')" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-600 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 hover:opacity-90 active:scale-95 transition">
                         + شارژ موجودی
                     </button>
                 </div>
@@ -355,8 +383,9 @@
                     <!-- Populated dynamically -->
                 </div>
 
-                <!-- Mode B: Custom Service Builder -->
-                <div id="custom-plan-container" class="app-card rounded-3xl p-5 space-y-5 hidden">
+                <!-- Mode B: Custom Service Builder (Pasargad Style) -->
+                <div id="custom-plan-container" class="rounded-3xl p-5 bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-indigo-500/20 backdrop-blur-xl relative overflow-hidden shadow-sm dark:shadow-xl space-y-5 hidden transition-colors">
+                    <div class="absolute -left-6 -bottom-6 w-32 h-32 rounded-full bg-indigo-500/10 blur-2xl pointer-events-none"></div>
                     <div class="text-center pb-2 border-b border-slate-100 dark:border-slate-800">
                         <h3 class="font-bold text-sm">ساخت سرویس سفارشی شما</h3>
                         <p class="text-[11px] text-muted mt-1">حجم و زمان دقیق اشتراک را طبق نیاز خود تنظیم کنید</p>
@@ -364,50 +393,67 @@
 
                     <!-- Traffic Slider -->
                     <div class="space-y-2">
-                        <div class="flex items-center justify-between text-xs">
-                            <span class="text-muted">حجم اشتراک:</span>
-                            <span class="font-mono font-bold text-sm text-brand-500"><span id="custom-traffic-val">20</span> گیگابایت</span>
+                        <div class="flex items-center justify-between text-xs font-semibold">
+                            <span class="text-slate-700 dark:text-slate-300">حجم ترافیک مورد نظر (گیگابایت):</span>
+                            <span class="font-mono font-bold text-sm text-indigo-600 dark:text-indigo-400" id="custom-traffic-val">20 GB</span>
                         </div>
-                        <input type="range" id="custom-traffic-slider" min="5" max="300" step="5" value="20" class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-800 cursor-pointer" oninput="updateCustomCalculation()">
+                        <input type="range" id="custom-traffic-slider" min="5" max="300" step="5" value="20" class="w-full h-2 cursor-pointer" oninput="updateCustomCalculation()">
                         <div class="flex justify-between text-[10px] text-muted font-mono">
                             <span id="custom-traffic-min">5 GB</span>
                             <span id="custom-traffic-max">300 GB</span>
+                        </div>
+
+                        <!-- Direct Preset Buttons (Pasargad Style) -->
+                        <div class="grid grid-cols-4 gap-2 pt-1">
+                            <button type="button" onclick="setCustomTraffic(10)" class="py-1.5 px-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-xs font-semibold hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 shadow-sm transition-all">10 GB</button>
+                            <button type="button" onclick="setCustomTraffic(25)" class="py-1.5 px-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-xs font-semibold hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 shadow-sm transition-all">25 GB</button>
+                            <button type="button" onclick="setCustomTraffic(50)" class="py-1.5 px-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-xs font-semibold hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 shadow-sm transition-all">50 GB</button>
+                            <button type="button" onclick="setCustomTraffic(100)" class="py-1.5 px-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-xs font-semibold hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 shadow-sm transition-all">100 GB</button>
                         </div>
                     </div>
 
                     <!-- Days Slider -->
                     <div class="space-y-2">
-                        <div class="flex items-center justify-between text-xs">
-                            <span class="text-muted">مدت اعتبار:</span>
-                            <span class="font-mono font-bold text-sm text-indigo-500"><span id="custom-days-val">30</span> روز</span>
+                        <div class="flex items-center justify-between text-xs font-semibold">
+                            <span class="text-slate-700 dark:text-slate-300">مدت زمان اعتبار:</span>
+                            <span class="font-mono font-bold text-sm text-indigo-600 dark:text-indigo-400" id="custom-days-val">30 روز</span>
                         </div>
-                        <input type="range" id="custom-days-slider" min="1" max="180" step="1" value="30" class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-800 cursor-pointer" oninput="updateCustomCalculation()">
+                        <input type="range" id="custom-days-slider" min="1" max="180" step="1" value="30" class="w-full h-2 cursor-pointer" oninput="updateCustomCalculation()">
                         <div class="flex justify-between text-[10px] text-muted font-mono">
                             <span id="custom-days-min">1 روز</span>
                             <span id="custom-days-max">180 روز</span>
                         </div>
+
+                        <!-- Direct Preset Buttons (Pasargad Style) -->
+                        <div class="grid grid-cols-4 gap-2 pt-1">
+                            <button type="button" onclick="setCustomDays(15)" class="py-1.5 px-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-xs font-semibold hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 shadow-sm transition-all">۱۵ روز</button>
+                            <button type="button" onclick="setCustomDays(30)" class="py-1.5 px-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-xs font-semibold hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 shadow-sm transition-all">۳۰ روز</button>
+                            <button type="button" onclick="setCustomDays(60)" class="py-1.5 px-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-xs font-semibold hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 shadow-sm transition-all">۶۰ روز</button>
+                            <button type="button" onclick="setCustomDays(90)" class="py-1.5 px-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-xs font-semibold hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 shadow-sm transition-all">۹۰ روز</button>
+                        </div>
                     </div>
 
                     <!-- Limitations summary -->
-                    <div class="app-card-solid rounded-2xl p-3 flex items-center justify-between text-xs">
-                        <div class="flex items-center gap-1.5 text-muted">
-                            <span>👥</span>
-                            <span>محدودیت IP:</span>
+                    <div class="app-card-solid rounded-2xl p-3.5 flex items-center justify-between text-xs">
+                        <div class="flex items-center gap-2 text-muted">
+                            <i class="fa-solid fa-users text-indigo-500"></i>
+                            <span>محدودیت کاربر همزمان:</span>
                         </div>
-                        <span class="font-semibold text-brand-500">۱ کاربر همزمان</span>
+                        <span class="font-bold text-indigo-600 dark:text-indigo-400">۱ کاربر فعال</span>
                     </div>
 
-                    <!-- Custom Price Calculator Display -->
-                    <div class="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/40 flex items-center justify-between">
-                        <div>
-                            <div class="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">مبلغ قابل پرداخت</div>
-                            <div class="flex items-baseline gap-1 mt-0.5">
-                                <span class="text-xl font-black font-mono text-indigo-700 dark:text-indigo-300" id="custom-price-display">0</span>
+                    <!-- Price Breakdown & Action Button (Pasargad Style) -->
+                    <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 backdrop-blur-xl space-y-3 shadow-sm transition-colors">
+                        <div class="flex items-center justify-between text-xs pb-2 border-b border-slate-200 dark:border-slate-800">
+                            <span class="text-slate-500 dark:text-slate-400">مبلغ قابل پرداخت:</span>
+                            <div class="flex items-baseline gap-1 font-mono">
+                                <span class="text-xl font-black text-indigo-600 dark:text-indigo-400" id="custom-price-display">0</span>
                                 <span class="text-[11px] text-muted">تومان</span>
                             </div>
                         </div>
-                        <button onclick="openCheckoutModal(null, true)" class="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/25 active:scale-95 transition">
-                            ثبت و خرید سرویس
+                        <button onclick="openCheckoutModal(null, true)" class="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-600 text-white font-bold text-sm rounded-2xl shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 active:scale-[0.98] transition-all">
+                            <i class="fa-solid fa-cart-check"></i>
+                            <span>ثبت و پرداخت سفارش</span>
                         </button>
                     </div>
                 </div>
@@ -499,8 +545,9 @@
                         <input type="text" id="wallet-receipt-text" placeholder="یا کد پیگیری واریز را اینجا بنویسید" class="app-input w-full rounded-xl px-4 py-2 text-xs mt-2 focus:outline-none">
                     </div>
 
-                    <button type="submit" id="btn-submit-wallet" class="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 hover:opacity-90 active:scale-95 transition">
-                        ارسال فیش واریز جهت تایید
+                    <button type="submit" id="btn-submit-wallet" class="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-600 text-white font-bold text-sm rounded-2xl shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 active:scale-[0.98] transition-all">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        <span>ارسال فیش واریز جهت تایید</span>
                     </button>
                 </form>
             </div>
@@ -510,47 +557,34 @@
 
 
     <!-- ============================================================== -->
-    <!-- FLOATING GLASS BOTTOM NAVIGATION BAR                           -->
-    <!-- 4 TABS RTL ORDER:                                              -->
-    <!-- 1 (Right): حساب کاربری                                          -->
-    <!-- 2: خرید سرویس جدید                                             -->
-    <!-- 3: سرویس‌های من                                                -->
-    <!-- 4 (Left): کیف پول                                              -->
+    <!-- FLOATING ROUNDED BOTTOM NAVIGATION BAR (PASARGAD STYLE)        -->
     <!-- ============================================================== -->
-    <nav class="app-navbar fixed bottom-0 left-0 right-0 z-40 max-w-md mx-auto px-2 py-2 flex items-center justify-around transition-colors">
-        
-        <!-- Tab 1: حساب کاربری (Rightmost) -->
-        <button onclick="switchTab('profile')" id="nav-btn-profile" class="flex-1 py-1.5 flex flex-col items-center justify-center gap-1 text-brand-500 transition active:scale-95">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-            <span class="text-[10px] font-bold">حساب من</span>
-        </button>
+    <nav class="fixed bottom-4 left-4 right-4 max-w-md mx-auto z-50 rounded-3xl p-1.5 bg-white/95 dark:bg-slate-950/95 backdrop-blur-2xl border border-slate-200 dark:border-slate-800 shadow-2xl shadow-indigo-950/10 dark:shadow-black/60 transition-all">
+        <div class="grid grid-cols-4 gap-1 text-center">
+            <!-- Tab 1: Profile (Rightmost) -->
+            <button onclick="switchTab('profile')" id="nav-btn-profile" class="tab-btn active flex flex-col items-center justify-center py-2 px-1 rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/30">
+                <i class="fa-solid fa-user text-base mb-1"></i>
+                <span class="text-[11px] font-bold">حساب من</span>
+            </button>
 
-        <!-- Tab 2: خرید سرویس جدید -->
-        <button onclick="switchTab('shop')" id="nav-btn-shop" class="flex-1 py-1.5 flex flex-col items-center justify-center gap-1 text-muted hover:text-brand-500 transition active:scale-95">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-            <span class="text-[10px] font-bold">خرید سرویس</span>
-        </button>
+            <!-- Tab 2: Shop -->
+            <button onclick="switchTab('shop')" id="nav-btn-shop" class="tab-btn flex flex-col items-center justify-center py-2 px-1 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-white">
+                <i class="fa-solid fa-cart-shopping text-base mb-1"></i>
+                <span class="text-[11px] font-semibold">خرید سرویس</span>
+            </button>
 
-        <!-- Tab 3: سرویس‌های من -->
-        <button onclick="switchTab('services')" id="nav-btn-services" class="flex-1 py-1.5 flex flex-col items-center justify-center gap-1 text-muted hover:text-brand-500 transition active:scale-95">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            <span class="text-[10px] font-bold">سرویس‌های من</span>
-        </button>
+            <!-- Tab 3: My Services -->
+            <button onclick="switchTab('services')" id="nav-btn-services" class="tab-btn flex flex-col items-center justify-center py-2 px-1 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-white">
+                <i class="fa-solid fa-shield-halved text-base mb-1"></i>
+                <span class="text-[11px] font-semibold">سرویس‌های من</span>
+            </button>
 
-        <!-- Tab 4: کیف پول (Leftmost) -->
-        <button onclick="switchTab('wallet')" id="nav-btn-wallet" class="flex-1 py-1.5 flex flex-col items-center justify-center gap-1 text-muted hover:text-brand-500 transition active:scale-95">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-            </svg>
-            <span class="text-[10px] font-bold">کیف پول</span>
-        </button>
-
+            <!-- Tab 4: Wallet (Leftmost) -->
+            <button onclick="switchTab('wallet')" id="nav-btn-wallet" class="tab-btn flex flex-col items-center justify-center py-2 px-1 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-white">
+                <i class="fa-solid fa-wallet text-base mb-1"></i>
+                <span class="text-[11px] font-semibold">کیف پول</span>
+            </button>
+        </div>
     </nav>
 
 
@@ -626,8 +660,9 @@
             </div>
 
             <div class="pt-2">
-                <button type="button" id="btn-confirm-checkout" onclick="confirmOrder()" class="w-full py-3 rounded-2xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/25 active:scale-95 transition">
-                    تایید و ثبت نهایی سفارش
+                <button type="button" id="btn-confirm-checkout" onclick="confirmOrder()" class="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-600 text-white font-bold text-sm rounded-2xl shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 active:scale-[0.98] transition-all">
+                    <i class="fa-solid fa-cart-check"></i>
+                    <span>تایید و ثبت نهایی سفارش</span>
                 </button>
             </div>
         </div>
@@ -801,6 +836,10 @@
                 localStorage.setItem('vpn_miniapp_theme', 'dark');
             }
             updateThemeSwitcherUI(theme);
+            if (typeof updateSliderTrack === 'function') {
+                updateSliderTrack('custom-traffic-slider');
+                updateSliderTrack('custom-days-slider');
+            }
         }
 
         function updateThemeSwitcherUI(mode) {
@@ -861,21 +900,20 @@
             });
         }
 
-        // --- NAVIGATION TABS ---
+        // --- NAVIGATION TABS (PASARGAD STYLE) ---
         function switchTab(tab) {
             haptic('impact');
             const tabs = ['profile', 'shop', 'services', 'wallet'];
             tabs.forEach(t => {
                 const el = document.getElementById('tab-' + t);
                 const btn = document.getElementById('nav-btn-' + t);
+                if (!el || !btn) return;
                 if (t === tab) {
                     el.classList.remove('hidden');
-                    btn.classList.add('text-brand-500');
-                    btn.classList.remove('text-muted');
+                    btn.className = 'tab-btn active flex flex-col items-center justify-center py-2 px-1 rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 font-bold';
                 } else {
                     el.classList.add('hidden');
-                    btn.classList.remove('text-brand-500');
-                    btn.classList.add('text-muted');
+                    btn.className = 'tab-btn flex flex-col items-center justify-center py-2 px-1 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-white font-semibold';
                 }
             });
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1101,15 +1139,47 @@
             const customContainer = document.getElementById('custom-plan-container');
 
             if (mode === 'custom') {
-                btnCustom.className = 'px-2.5 py-1 rounded-lg font-medium text-[11px] transition bg-brand-500 text-white shadow-sm';
-                btnReady.className = 'px-2.5 py-1 rounded-lg font-medium text-[11px] transition text-muted hover:text-brand-500';
+                btnCustom.className = 'px-2.5 py-1 rounded-lg font-medium text-[11px] transition bg-indigo-600 text-white shadow-sm';
+                btnReady.className = 'px-2.5 py-1 rounded-lg font-medium text-[11px] transition text-muted hover:text-indigo-600';
                 readyContainer.classList.add('hidden');
                 customContainer.classList.remove('hidden');
+                updateCustomCalculation();
             } else {
-                btnReady.className = 'px-2.5 py-1 rounded-lg font-medium text-[11px] transition bg-brand-500 text-white shadow-sm';
-                btnCustom.className = 'px-2.5 py-1 rounded-lg font-medium text-[11px] transition text-muted hover:text-brand-500';
+                btnReady.className = 'px-2.5 py-1 rounded-lg font-medium text-[11px] transition bg-indigo-600 text-white shadow-sm';
+                btnCustom.className = 'px-2.5 py-1 rounded-lg font-medium text-[11px] transition text-muted hover:text-indigo-600';
                 readyContainer.classList.remove('hidden');
                 customContainer.classList.add('hidden');
+            }
+        }
+
+        function updateSliderTrack(sliderId) {
+            const slider = document.getElementById(sliderId);
+            if (!slider) return;
+            const min = Number(slider.min) || 1;
+            const max = Number(slider.max) || 100;
+            const val = Number(slider.value) || min;
+            const pct = Math.max(0, Math.min(100, ((val - min) / (max - min)) * 100));
+
+            const isDark = document.documentElement.classList.contains('dark') || document.documentElement.classList.contains('theme-dark');
+            const uncolored = isDark ? 'rgba(30, 41, 59, 0.85)' : 'rgba(226, 232, 240, 0.9)';
+            slider.style.background = `linear-gradient(to left, #6366f1 0%, #8b5cf6 ${pct}%, ${uncolored} ${pct}%, ${uncolored} 100%)`;
+        }
+
+        function setCustomTraffic(gb) {
+            haptic('selection');
+            const slider = document.getElementById('custom-traffic-slider');
+            if (slider) {
+                slider.value = gb;
+                updateCustomCalculation();
+            }
+        }
+
+        function setCustomDays(days) {
+            haptic('selection');
+            const slider = document.getElementById('custom-days-slider');
+            if (slider) {
+                slider.value = days;
+                updateCustomCalculation();
             }
         }
 
@@ -1118,8 +1188,11 @@
             const vol = parseInt(document.getElementById('custom-traffic-slider').value);
             const days = parseInt(document.getElementById('custom-days-slider').value);
 
-            document.getElementById('custom-traffic-val').innerText = vol;
-            document.getElementById('custom-days-val').innerText = days;
+            document.getElementById('custom-traffic-val').innerText = vol + ' GB';
+            document.getElementById('custom-days-val').innerText = days + ' روز';
+
+            updateSliderTrack('custom-traffic-slider');
+            updateSliderTrack('custom-days-slider');
 
             const pricePerGb = selectedPanel.price_per_gb || 4000;
             const pricePerDay = selectedPanel.price_per_day || 1000;
@@ -1175,7 +1248,7 @@
                     </div>
                     <div class="text-left space-y-1">
                         <div class="text-sm font-black font-mono text-emerald-500">${Number(p.price).toLocaleString()} <span class="text-[9px] font-normal text-muted">تومان</span></div>
-                        <button onclick='openCheckoutModal(${JSON.stringify(p)}, false)' class="px-3.5 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shadow active:scale-95 transition">
+                        <button onclick='openCheckoutModal(${JSON.stringify(p)}, false)' class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-600 text-white font-bold text-xs shadow-md shadow-indigo-600/30 active:scale-95 transition">
                             خرید ⚡
                         </button>
                     </div>
@@ -1264,19 +1337,19 @@
 
                     <!-- Action Buttons -->
                     <div class="grid grid-cols-2 gap-2 pt-1">
-                        <button onclick='copyServiceLink(${JSON.stringify(s)})' class="py-2 px-3 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow transition active:scale-95 flex items-center justify-center gap-1.5">
-                            <span>📋</span>
+                        <button onclick='copyServiceLink(${JSON.stringify(s)})' class="py-2.5 px-3 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-600 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 transition active:scale-95 flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-copy"></i>
                             <span>کپی لینک اتصال</span>
                         </button>
-                        <button onclick='openQrModal(${JSON.stringify(s)})' class="py-2 px-3 rounded-xl app-card hover:bg-subtle text-xs font-semibold transition active:scale-95 flex items-center justify-center gap-1.5">
-                            <span>📷</span>
+                        <button onclick='openQrModal(${JSON.stringify(s)})' class="py-2.5 px-3 rounded-xl app-card hover:bg-subtle text-xs font-semibold transition active:scale-95 flex items-center justify-center gap-1.5 border border-slate-200 dark:border-slate-800">
+                            <i class="fa-solid fa-qrcode"></i>
                             <span>مشاهده کد QR</span>
                         </button>
                     </div>
 
                     ${isWireGuard ? `
-                        <button onclick='downloadWireguardConf(${JSON.stringify(s)})' class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-90 text-white text-xs font-semibold shadow transition active:scale-95 flex items-center justify-center gap-1.5">
-                            <span>📥</span>
+                        <button onclick='downloadWireguardConf(${JSON.stringify(s)})' class="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-90 text-white text-xs font-semibold shadow-md shadow-purple-600/30 transition active:scale-95 flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-file-arrow-down"></i>
                             <span>دانلود مستقیم فایل کانفیگ وایرگارد (.conf)</span>
                         </button>
                     ` : ''}
