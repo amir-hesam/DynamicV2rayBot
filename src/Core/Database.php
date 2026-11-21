@@ -146,6 +146,7 @@ class Database
             "ALTER TABLE panels ADD COLUMN min_days INTEGER DEFAULT 1",
             "ALTER TABLE panels ADD COLUMN max_days INTEGER DEFAULT 365",
             "ALTER TABLE panels ADD COLUMN categories_json TEXT",
+            "ALTER TABLE panels ADD COLUMN linksubx TEXT DEFAULT NULL",
             "ALTER TABLE plans ADD COLUMN category VARCHAR(100)",
             "ALTER TABLE plans ADD COLUMN ip_limit INTEGER NOT NULL DEFAULT 1",
             "ALTER TABLE plans ADD COLUMN hwid_limit INTEGER NOT NULL DEFAULT 0",

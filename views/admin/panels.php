@@ -66,6 +66,9 @@ $panelLabels = \App\Panels\PanelManager::getAllPanelTypes();
                         <button onclick="testConnection(<?= $p['id'] ?>)" id="test-btn-<?= $p['id'] ?>" class="flex-1 py-2 px-3 bg-slate-900 hover:bg-slate-800 text-blue-400 rounded-xl text-xs font-medium border border-slate-800 transition">
                             ⚡ تست اتصال
                         </button>
+                        <button onclick="openInboundsModal(<?= $p['id'] ?>, '<?= htmlspecialchars(addslashes($p['name'])) ?>')" class="py-2 px-3 bg-indigo-950/40 hover:bg-indigo-900/50 text-indigo-300 rounded-xl text-xs font-medium border border-indigo-800/40 transition">
+                            🎛 تنظیم اینباند
+                        </button>
                         <button onclick='editPanel(<?= json_encode($p) ?>)' class="py-2 px-3 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl text-xs border border-slate-800 transition">
                             ✏️ ویرایش
                         </button>
@@ -207,7 +210,105 @@ $panelLabels = \App\Panels\PanelManager::getAllPanelTypes();
     </div>
 </div>
 
+<!-- Modal Inbounds Setup -->
+<div id="inboundsModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4 z-50 overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl my-8 space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div>
+                <h3 class="font-bold text-white text-base">🎛 تنظیم هوشمند اینباندهای پنل</h3>
+                <p id="inboundsModalSubtitle" class="text-xs text-slate-400 mt-0.5"></p>
+            </div>
+            <button onclick="closeInboundsModal()" class="text-slate-400 hover:text-white text-xl">&times;</button>
+        </div>
+
+        <div class="p-3.5 bg-blue-950/30 border border-blue-900/40 rounded-2xl text-xs text-blue-300 leading-relaxed">
+            💡 برای تنظیم اینباند یک کلاینت با اینباند های مورد نظر داخل پنل بسازید و سپس اسم کلاینت رو وارد کنید.<br>
+            <span class="text-[11px] text-slate-400 mt-1 block">ربات به صورت خودکار تمامی اینباندهایی که آن کلاینت در آن‌ها فعال است را شناسایی کرده و از این پس تمام کلاینت‌های جدید این پنل با همین اینباندها ساخته می‌شوند.</span>
+        </div>
+
+        <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1.5">👤 اسم کلاینت یا ایمیل در پنل</label>
+            <input type="text" id="inbound_client_name" placeholder="مثال: sample_user یا Remark کلاینت" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono" dir="ltr">
+        </div>
+
+        <div id="inbound_setup_result" class="hidden text-xs p-3 rounded-xl"></div>
+
+        <input type="hidden" id="inbound_panel_id" value="">
+
+        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+            <button type="button" onclick="closeInboundsModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium transition">انصراف</button>
+            <button type="button" onclick="submitInboundsFromClient()" id="btn-save-inbounds" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-medium transition flex items-center gap-2">
+                <span>🔍 شناسایی و ذخیره اینباندها</span>
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
+function openInboundsModal(panelId, panelName) {
+    document.getElementById('inbound_panel_id').value = panelId;
+    document.getElementById('inboundsModalSubtitle').innerText = 'سرور: ' + panelName;
+    document.getElementById('inbound_client_name').value = '';
+    document.getElementById('inbound_setup_result').classList.add('hidden');
+    document.getElementById('inboundsModal').classList.remove('hidden');
+    document.getElementById('inboundsModal').classList.add('flex');
+}
+
+function closeInboundsModal() {
+    document.getElementById('inboundsModal').classList.add('hidden');
+    document.getElementById('inboundsModal').classList.remove('flex');
+}
+
+function submitInboundsFromClient() {
+    const panelId = document.getElementById('inbound_panel_id').value;
+    const clientName = document.getElementById('inbound_client_name').value.trim();
+    const resultBox = document.getElementById('inbound_setup_result');
+    const btn = document.getElementById('btn-save-inbounds');
+
+    if (!clientName) {
+        alert('لطفاً اسم کلاینت را وارد فرمایید.');
+        return;
+    }
+
+    const origText = btn.innerHTML;
+    btn.innerHTML = '⏳ در حال استخراج...';
+    btn.disabled = true;
+    resultBox.classList.add('hidden');
+
+    const formData = new FormData();
+    formData.append('panel_id', panelId);
+    formData.append('client_name', clientName);
+
+    fetch('/admin/panels/set-inbounds', {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        btn.innerHTML = origText;
+        btn.disabled = false;
+        resultBox.classList.remove('hidden');
+        if (data.success) {
+            resultBox.className = 'text-xs p-3 rounded-xl bg-emerald-950/40 border border-emerald-900/50 text-emerald-300 space-y-1';
+            let listHtml = '<b>✅ ' + data.message + '</b><br>اینباندهای ثبت‌شده: <code>' + (data.inbound_ids ? data.inbound_ids.join(', ') : '') + '</code>';
+            resultBox.innerHTML = listHtml;
+            setTimeout(() => {
+                location.reload();
+            }, 1800);
+        } else {
+            resultBox.className = 'text-xs p-3 rounded-xl bg-rose-950/40 border border-rose-900/50 text-rose-300';
+            resultBox.innerHTML = '❌ ' + data.message;
+        }
+    })
+    .catch(err => {
+        btn.innerHTML = origText;
+        btn.disabled = false;
+        resultBox.classList.remove('hidden');
+        resultBox.className = 'text-xs p-3 rounded-xl bg-rose-950/40 border border-rose-900/50 text-rose-300';
+        resultBox.innerHTML = '❌ خطا در ارسال درخواست به سرور.';
+    });
+}
+
 function selectType(type) {
     document.getElementById('panel_type').value = type;
     document.querySelectorAll('.type-btn').forEach(btn => {

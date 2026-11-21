@@ -479,6 +479,52 @@ class AdminController
         Response::json($result);
     }
 
+    public function setPanelInboundsFromClient(Request $request): void
+    {
+        $this->authCheck('panels');
+        $panelId = (int)$request->post('panel_id', 0);
+        $clientName = trim($request->post('client_name', ''));
+
+        $panel = Panel::find($panelId);
+        if (!$panel) {
+            Response::json(['success' => false, 'message' => 'سرور مورد نظر یافت نشد.']);
+            return;
+        }
+
+        if (empty($clientName)) {
+            Response::json(['success' => false, 'message' => 'لطفاً نام یا ایمیل کلاینت را وارد فرمایید.']);
+            return;
+        }
+
+        try {
+            $adapter = PanelManager::make($panel);
+            $matched = $adapter->findInboundsForClient($clientName);
+
+            if (empty($matched)) {
+                Response::json([
+                    'success' => false,
+                    'message' => "هیچ کلاینتی با نام یا ایمیل «{$clientName}» در این سرور یافت نشد. لطفاً از وجود این کلاینت در پنل اطمینان حاصل فرمایید."
+                ]);
+                return;
+            }
+
+            $inboundIds = array_column($matched, 'id');
+            Panel::updateInbounds($panelId, $inboundIds);
+
+            Response::json([
+                'success' => true,
+                'message' => "تعداد " . count($matched) . " اینباند با موفقیت شناسایی و ذخیره شد.",
+                'inbounds' => $matched,
+                'inbound_ids' => $inboundIds,
+            ]);
+        } catch (\Throwable $e) {
+            Response::json([
+                'success' => false,
+                'message' => 'خطا در ارتباط با سرور: ' . $e->getMessage()
+            ]);
+        }
+    }
+
     // --- Plans ---
     public function plans(Request $request): void
     {

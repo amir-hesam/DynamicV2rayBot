@@ -44,4 +44,11 @@ interface PanelInterface
      * @return bool
      */
     public function deleteClient(int $inboundId, string $clientIdentifier): bool;
+
+    /**
+     * Find inbounds that are linked to a specific sample client.
+     * @param string $clientName
+     * @return array
+     */
+    public function findInboundsForClient(string $clientName): array;
 }

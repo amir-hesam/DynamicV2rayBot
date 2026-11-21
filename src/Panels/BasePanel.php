@@ -15,9 +15,9 @@ abstract class BasePanel implements PanelInterface
         $this->panel = $panel;
         $this->baseUrl = rtrim($panel['url'] ?? '', '/');
 
-        $cookieDir = sys_get_temp_dir() . '/vpn_bot_cookies';
+        $cookieDir = dirname(__DIR__, 2) . '/storage/cookies';
         if (!is_dir($cookieDir)) {
-            mkdir($cookieDir, 0777, true);
+            @mkdir($cookieDir, 0777, true);
         }
         $this->cookieFile = $cookieDir . '/panel_' . ($panel['type'] ?? 'p') . '_' . ($panel['id'] ?? 'temp') . '.txt';
     }
@@ -92,5 +92,39 @@ abstract class BasePanel implements PanelInterface
         $data[6] = chr(ord($data[6]) & 0x0f | 0x40);
         $data[8] = chr(ord($data[8]) & 0x3f | 0x80);
         return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+    }
+
+    public function findInboundsForClient(string $clientName): array
+    {
+        $inbounds = $this->getInbounds();
+        $matched = [];
+        $cleanTarget = strtolower(trim($clientName));
+
+        if (empty($cleanTarget) || empty($inbounds)) {
+            return [];
+        }
+
+        foreach ($inbounds as $in) {
+            $inboundId = (int)($in['id'] ?? ($in['tag'] ?? 0));
+            $settings = is_array($in['settings'] ?? null) ? $in['settings'] : json_decode($in['settings'] ?? '{}', true);
+            $clients = $settings['clients'] ?? [];
+            if (is_array($clients)) {
+                foreach ($clients as $c) {
+                    $cEmail = strtolower(trim($c['email'] ?? ($c['username'] ?? '')));
+                    $cId = strtolower(trim($c['id'] ?? ($c['uuid'] ?? '')));
+                    if ($cEmail === $cleanTarget || $cId === $cleanTarget || str_contains($cEmail, $cleanTarget)) {
+                        $matched[] = [
+                            'id' => $inboundId,
+                            'remark' => $in['remark'] ?? ($in['tag'] ?? "اینباند {$inboundId}"),
+                            'protocol' => $in['protocol'] ?? '',
+                            'port' => $in['port'] ?? 0,
+                        ];
+                        break;
+                    }
+                }
+            }
+        }
+
+        return $matched;
     }
 }

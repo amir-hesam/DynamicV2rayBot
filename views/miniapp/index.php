@@ -998,7 +998,7 @@
                 const pId   = document.getElementById('profile-tgid');
                 const hText = document.getElementById('header-user-text');
                 if (pName && tgUser.first_name) pName.innerText = tgUser.first_name;
-                if (pUser) pUser.innerText = tgUser.username ? ('@' + tgUser.username) : '@user';
+                if (pUser) pUser.innerText = tgUser.username ? ('@' + tgUser.username) : ('ID: ' + tgUser.id);
                 if (pId) pId.innerText = 'ID: ' + tgUser.id;
                 if (hText && tgUser.first_name) hText.innerText = tgUser.first_name + ' خوش آمدید';
             }
@@ -1034,7 +1034,7 @@
                         document.getElementById('header-user-text').innerText = (isAdmin ? '👑 مدیر گرامی ' : '') + (currentUser.first_name || 'کاربر') + ' خوش آمدید';
                         document.getElementById('header-balance').innerText = Number(currentUser.balance).toLocaleString();
                         document.getElementById('profile-name').innerText = currentUser.first_name || (isAdmin ? 'مدیر ارشد' : 'کاربر گرامی');
-                        document.getElementById('profile-username').innerText = currentUser.username ? ('@' + currentUser.username) : (isAdmin ? '@admin' : '@user');
+                        document.getElementById('profile-username').innerText = currentUser.username ? ('@' + currentUser.username) : (isAdmin ? '@admin' : ('ID: ' + currentUser.telegram_id));
                         document.getElementById('profile-tgid').innerText = 'ID: ' + currentUser.telegram_id;
                         document.getElementById('profile-balance').innerText = Number(currentUser.balance).toLocaleString();
                         document.getElementById('wallet-balance-val').innerText = Number(currentUser.balance).toLocaleString();
@@ -1060,12 +1060,12 @@
                     } else if (tgUser) {
                         document.getElementById('header-user-text').innerText = (tgUser.first_name || 'کاربر') + ' خوش آمدید';
                         document.getElementById('profile-name').innerText = tgUser.first_name || 'کاربر گرامی';
-                        document.getElementById('profile-username').innerText = tgUser.username ? ('@' + tgUser.username) : '@user';
+                        document.getElementById('profile-username').innerText = tgUser.username ? ('@' + tgUser.username) : ('ID: ' + tgUser.id);
                         document.getElementById('profile-tgid').innerText = 'ID: ' + tgUser.id;
                     } else if (data.auth === false) {
                         document.getElementById('header-user-text').innerText = 'حالت پیش‌نمایش';
                         document.getElementById('profile-name').innerText = 'کاربر مهمان';
-                        document.getElementById('profile-username').innerText = '@user';
+                        document.getElementById('profile-username').innerText = '---';
                         document.getElementById('profile-tgid').innerText = 'ID: -';
                         const roleBadge = document.getElementById('profile-role-badge');
                         if (roleBadge) {

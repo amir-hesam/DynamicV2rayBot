@@ -87,6 +87,60 @@ class Handler
             return;
         }
 
+        // Waiting Inbound Client Name step (Smart inbounds assignment)
+        if (str_starts_with($user['step'], 'waiting_inbound_client_')) {
+            $panelId = (int)str_replace('waiting_inbound_client_', '', $user['step']);
+            $panel = Panel::find($panelId);
+            if (!$panel) {
+                User::setStep($user['id'], 'idle');
+                $this->bot->sendMessage($from['id'], "❌ سرور مورد نظر یافت نشد.", Keyboard::mainMenu($isAdmin, $from['id']));
+                return;
+            }
+
+            $clientName = trim($text);
+            if (empty($clientName)) {
+                $this->bot->sendMessage($from['id'], "❌ لطفاً نام یا ایمیل کلاینت را ارسال فرمایید:", Keyboard::cancelKeyboard());
+                return;
+            }
+
+            $this->bot->sendMessage($from['id'], "⏳ <b>در حال جستجو و استخراج اینباندهای متصل به کلاینت «" . htmlspecialchars($clientName) . "» در سرور...</b>");
+
+            try {
+                $adapter = \App\Panels\PanelManager::make($panel);
+                $matched = $adapter->findInboundsForClient($clientName);
+
+                if (empty($matched)) {
+                    $msg = "❌ <b>کلاینتی با نام یا ایمیل «" . htmlspecialchars($clientName) . "» در این سرور یافت نشد!</b>\n\n";
+                    $msg .= "لطفاً موارد زیر را بررسی فرمایید:\n";
+                    $msg .= "۱. داخل پنل یک کلاینت با این نام ساخته و به اینباندهای دلخواه متصل نمایید.\n";
+                    $msg .= "۲. دقت کنید نام وارد شده با نام کلاینت (Remark یا Email) دقیقاً مطابقت داشته باشد.\n\n";
+                    $msg .= "لطفاً مجدداً <b>اسم کلاینت</b> را وارد کنید (یا دکمه انصراف را بزنید):";
+                    $this->bot->sendMessage($from['id'], $msg, Keyboard::cancelKeyboard());
+                    return;
+                }
+
+                $inboundIds = array_column($matched, 'id');
+                Panel::updateInbounds($panelId, $inboundIds);
+                User::setStep($user['id'], 'idle');
+
+                $inboundListText = "";
+                foreach ($matched as $m) {
+                    $inboundListText .= "• <b>اینباند {$m['id']}:</b> " . htmlspecialchars($m['remark']) . " (" . strtoupper($m['protocol']) . ($m['port'] ? " - پورت {$m['port']}" : "") . ")\n";
+                }
+
+                $msg = "✅ <b>اینباندهای سرور «" . htmlspecialchars($panel['name']) . "» با موفقیت تنظیم شدند!</b>\n\n";
+                $msg .= "👤 <b>کلاینت مرجع شناسایی‌شده:</b> <code>" . htmlspecialchars($clientName) . "</code>\n";
+                $msg .= "📡 <b>اینباندهای متصل استخراج‌شده (" . count($matched) . " مورد):</b>\n" . $inboundListText . "\n";
+                $msg .= "✨ <i>از این پس تمامی اکانت‌ها و کانفیگ‌هایی که روی این سرور ایجاد شوند، بر روی همین اینباندها ساخته خواهند شد.</i>\n";
+                $msg .= "💡 <i>(حجم، تاریخ انقضا و محدودیت آی‌پی مربوط به هر کاربر به صورت مستقل و طبق پلن خریداری‌شده او اعمال خواهد شد.)</i>";
+
+                $this->bot->sendMessage($from['id'], $msg, Keyboard::mainMenu($isAdmin, $from['id']));
+            } catch (\Throwable $e) {
+                $this->bot->sendMessage($from['id'], "❌ خطا در برقراری ارتباط با پنل: " . $e->getMessage(), Keyboard::cancelKeyboard());
+            }
+            return;
+        }
+
         // Handle commands and customizable menu buttons
         $btnMap = [];
         foreach (\App\Models\BotButton::all() as $b) {
@@ -187,6 +241,10 @@ class Handler
             $inline[] = [['text' => '⏳ بررسی و تایید سفارشات (' . $pendingOrders . ')', 'callback_data' => 'admin_list_pending']];
         }
         $inline[] = [
+            ['text' => '🖥 مدیریت سرورها و تنظیم اینباند', 'callback_data' => 'admin_manage_panels'],
+            ['text' => '🔑 فعال‌سازی و دریافت رمز وب پنل', 'callback_data' => 'adm_activate_web_panel']
+        ];
+        $inline[] = [
             ['text' => '📢 تنظیم گروه گزارشات (Topics)', 'callback_data' => 'admin_setup_report_group'],
             ['text' => '💾 بکاپ فوری دیتابیس', 'callback_data' => 'admin_trigger_backup']
         ];
@@ -194,6 +252,143 @@ class Handler
         $inline[] = [['text' => '🔙 بازگشت به منوی اصلی', 'callback_data' => 'back_to_main']];
 
         $this->bot->sendMessage($chatId, $text, ['inline_keyboard' => $inline]);
+    }
+
+    /**
+     * فعال‌سازی دسترسی وب پنل و تنظیم یوزرنیم به آیدی عددی ادمین همراه با تولید رمز عبور تصادفی جدید (مطابق PanelSaz)
+     */
+    private function activateWebPanelAccess(int|string $adminChatId): void
+    {
+        $newUsername = (string)$adminChatId;
+        $chars = '23456789abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ';
+        $newPassword = '';
+        for ($i = 0; $i < 10; $i++) {
+            $newPassword .= $chars[random_int(0, strlen($chars) - 1)];
+        }
+
+        // 1. Update/insert in admins table
+        $existingAdmin = \App\Models\Admin::findByUsername($newUsername);
+        if ($existingAdmin) {
+            \App\Models\Admin::update((int)$existingAdmin['id'], [
+                'name' => 'مدیر تلگرام (' . $newUsername . ')',
+                'role' => 'super_admin',
+                'permissions' => ['*'],
+                'password' => $newPassword,
+                'is_active' => 1,
+            ]);
+        } else {
+            \App\Models\Admin::create([
+                'username' => $newUsername,
+                'name' => 'مدیر تلگرام (' . $newUsername . ')',
+                'role' => 'super_admin',
+                'permissions' => ['*'],
+                'password' => $newPassword,
+                'is_active' => 1,
+            ]);
+        }
+
+        // 2. Also update Settings for legacy/direct verification
+        Setting::set('admin_username', $newUsername);
+        Setting::set('admin_password', password_hash($newPassword, PASSWORD_BCRYPT));
+
+        // 3. Prepare login URL
+        $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https') ? "https://" : "http://";
+        $host = $_SERVER['HTTP_HOST'] ?? (getenv('APP_URL') ? parse_url(getenv('APP_URL'), PHP_URL_HOST) : 'localhost');
+        $panelUrl = (str_starts_with($host, 'http') ? $host : ($proto . $host)) . '/admin/login';
+
+        $msg = "🔑 <b>دسترسی وب پنل مدیریت با موفقیت فعال و به‌روزرسانی شد!</b>\n\n"
+             . "مشخصات جدید ورود به وب پنل برای شما صادر گردید:\n\n"
+             . "🌐 <b>آدرس وب پنل:</b>\n<code>{$panelUrl}</code>\n\n"
+             . "👤 <b>نام کاربری (آیدی عددی شما):</b>\n<code>{$newUsername}</code>\n\n"
+             . "🔐 <b>رمز عبور جدید:</b>\n<code>{$newPassword}</code>\n\n"
+             . "💡 <i>توجه: با هر بار فشردن این دکمه، رمز عبور تغییر کرده و نام کاربری روی آیدی عددی تلگرام شما تنظیم می‌شود. کلیه ورودها به وب پنل در تاپیک «سایر گزارشات» لاگ خواهد شد.</i>";
+
+        $inline = [
+            [['text' => '🌐 ورود مستقیم به وب پنل', 'url' => $panelUrl]],
+            [['text' => '🔄 تولید مجدد رمز عبور', 'callback_data' => 'adm_activate_web_panel']],
+            [['text' => '🔙 بازگشت به منوی مدیریت', 'callback_data' => 'admin_dashboard']],
+        ];
+
+        $this->bot->sendMessage($adminChatId, $msg, ['inline_keyboard' => $inline]);
+
+        \App\Services\ReportHelper::sendToTopic(
+            \App\Services\ReportHelper::TOPIC_OTHER,
+            "🔑 <b>فعال‌سازی و صدور دسترسی وب پنل</b>\n\n"
+            . "👤 <b>ادمین صادرکننده:</b> <code>{$adminChatId}</code>\n"
+            . "🆔 <b>نام کاربری جدید پنل:</b> <code>{$newUsername}</code>\n"
+            . "⏰ <b>زمان:</b> " . \App\Services\ReportHelper::toJalali(time())
+        );
+    }
+
+    private function showAdminManagePanels(int|string $chatId, ?int $messageId = null): void
+    {
+        $panels = Panel::all();
+        if (empty($panels)) {
+            $text = "🖥 <b>مدیریت سرورها:</b>\n\nهنوز هیچ سروری ثبت نشده است. لطفاً از طریق وب پنل سرور جدید اضافه نمایید.";
+            $kb = ['inline_keyboard' => [[['text' => '🔙 بازگشت به داشبورد', 'callback_data' => 'admin_dashboard']]]];
+            if ($messageId) {
+                $this->bot->editMessageText($chatId, $messageId, $text, $kb);
+            } else {
+                $this->bot->sendMessage($chatId, $text, $kb);
+            }
+            return;
+        }
+
+        $text = "🖥 <b>مدیریت سرورها و تنظیم هوشمند اینباندها:</b>\n\n";
+        $text .= "جهت مشاهده جزئیات، تست اتصال زنده یا تنظیم اینباندهای هر سرور، سرور مورد نظر را انتخاب نمایید:\n\n";
+
+        $inline = [];
+        foreach ($panels as $p) {
+            $statusEmoji = $p['is_active'] ? '🟢' : '🔴';
+            $inbounds = json_decode($p['inbounds_json'] ?? '[]', true);
+            $inboundBadge = !empty($inbounds) ? (" [" . count($inbounds) . " اینباند]") : " [پیش‌فرض]";
+            $inline[] = [[
+                'text' => "{$statusEmoji} {$p['name']}{$inboundBadge}",
+                'callback_data' => 'admin_panel_view_' . $p['id']
+            ]];
+        }
+        $inline[] = [['text' => '🔙 بازگشت به داشبورد مدیریت', 'callback_data' => 'admin_dashboard']];
+
+        $kb = ['inline_keyboard' => $inline];
+        if ($messageId) {
+            $this->bot->editMessageText($chatId, $messageId, $text, $kb);
+        } else {
+            $this->bot->sendMessage($chatId, $text, $kb);
+        }
+    }
+
+    private function showAdminPanelView(int|string $chatId, int $panelId, ?int $messageId = null): void
+    {
+        $panel = Panel::find($panelId);
+        if (!$panel) {
+            $this->showAdminManagePanels($chatId, $messageId);
+            return;
+        }
+
+        $inbounds = json_decode($panel['inbounds_json'] ?? '[]', true);
+        $inboundText = !empty($inbounds) ? implode(', ', $inbounds) : 'همه اینباندها (پیش‌فرض)';
+
+        $text = "🖥 <b>سرور: " . htmlspecialchars($panel['name']) . "</b>\n\n";
+        $text .= "📌 <b>نوع پنل:</b> " . htmlspecialchars($panel['type']) . "\n";
+        $text .= "🌐 <b>آدرس:</b> <code>" . htmlspecialchars($panel['url']) . "</code>\n";
+        $text .= "👥 <b>کاربران فعال:</b> {$panel['current_clients']} از {$panel['capacity']}\n";
+        $text .= "📡 <b>شناسه اینباندهای تنظیم‌شده:</b> <code>{$inboundText}</code>\n\n";
+        $text .= "💡 برای تنظیم اینباندها بر اساس یک کلاینت نمونه، روی دکمه زیر کلیک کنید:";
+
+        $inline = [
+            [['text' => '🎛 تنظیم اینباند', 'callback_data' => 'admin_panel_set_inbound_' . $panelId]],
+            [['text' => '⚡ تست اتصال پنل', 'callback_data' => 'admin_panel_test_' . $panelId]],
+            [['text' => '🔙 بازگشت به لیست سرورها', 'callback_data' => 'admin_manage_panels']],
+        ];
+
+        $kb = ['inline_keyboard' => $inline];
+        if ($messageId) {
+            $this->bot->editMessageText($chatId, $messageId, $text, $kb);
+        } else {
+            $this->bot->sendMessage($chatId, $text, $kb);
+        }
+    }
     }
 
     private function showAdminPendingOrders(int|string $chatId): void
@@ -641,6 +836,95 @@ class Handler
                 $this->bot->sendMessage($chatId, "✅ <b>پشتیبان دیتابیس با موفقیت تولید شد و به تاپیک بکاپ در گروه / پیام‌های ذخیره ارسال گردید!</b> 💾");
             } else {
                 $this->bot->sendMessage($chatId, "❌ <b>خطا در تهیه پشتیبان:</b> " . ($res['error'] ?? 'خطای نامشخص'));
+            }
+            return;
+        }
+
+        // Admin Dashboard View
+        if ($data === 'admin_dashboard') {
+            if (!$isAdmin) {
+                $this->bot->answerCallbackQuery($callbackId, "عدم دسترسی", true);
+                return;
+            }
+            $this->bot->answerCallbackQuery($callbackId);
+            $this->showAdminDashboard($chatId);
+            return;
+        }
+
+        // Admin Activate Web Panel
+        if ($data === 'adm_activate_web_panel') {
+            if (!$isAdmin) {
+                $this->bot->answerCallbackQuery($callbackId, "عدم دسترسی", true);
+                return;
+            }
+            $this->bot->answerCallbackQuery($callbackId, "مشخصات جدید وب پنل صادر شد.");
+            $this->activateWebPanelAccess($chatId);
+            return;
+        }
+
+        // Admin Manage Panels
+        if ($data === 'admin_manage_panels') {
+            if (!$isAdmin) {
+                $this->bot->answerCallbackQuery($callbackId, "عدم دسترسی", true);
+                return;
+            }
+            $this->bot->answerCallbackQuery($callbackId);
+            $this->showAdminManagePanels($chatId, $messageId);
+            return;
+        }
+
+        // Admin Panel View
+        if (str_starts_with($data, 'admin_panel_view_')) {
+            if (!$isAdmin) {
+                $this->bot->answerCallbackQuery($callbackId, "عدم دسترسی", true);
+                return;
+            }
+            $panelId = (int)str_replace('admin_panel_view_', '', $data);
+            $this->bot->answerCallbackQuery($callbackId);
+            $this->showAdminPanelView($chatId, $panelId, $messageId);
+            return;
+        }
+
+        // Admin Panel Set Inbounds
+        if (str_starts_with($data, 'admin_panel_set_inbound_')) {
+            if (!$isAdmin) {
+                $this->bot->answerCallbackQuery($callbackId, "عدم دسترسی", true);
+                return;
+            }
+            $panelId = (int)str_replace('admin_panel_set_inbound_', '', $data);
+            $panel = Panel::find($panelId);
+            $this->bot->answerCallbackQuery($callbackId);
+
+            User::setStep($user['id'], 'waiting_inbound_client_' . $panelId);
+            $msg = "🎛 <b>تنظیم هوشمند اینباندهای سرور «" . htmlspecialchars($panel['name'] ?? '') . "»:</b>\n\n";
+            $msg .= "برای تنظیم اینباند یک کلاینت با اینباند های مورد نظر داخل پنل بسازید و سپس اسم کلاینت رو وارد کنید:\n\n";
+            $msg .= "💡 <i>ربات به صورت خودکار تمامی اینباندهایی که به آن کلاینت وصل هستند را شناسایی کرده و برای این سرور ذخیره می‌نماید.</i>\n";
+            $msg .= "⚠️ <i>(دقت کنید موقع تنظیم اینباند فقط اینباندها برای کلاینت‌های این سرور ست می‌شوند، نه حجم، روز یا آی‌پی لیمیت کلاینت نمونه.)</i>";
+
+            $this->bot->sendMessage($chatId, $msg, Keyboard::cancelKeyboard());
+            return;
+        }
+
+        // Admin Panel Test Connection
+        if (str_starts_with($data, 'admin_panel_test_')) {
+            if (!$isAdmin) {
+                $this->bot->answerCallbackQuery($callbackId, "عدم دسترسی", true);
+                return;
+            }
+            $panelId = (int)str_replace('admin_panel_test_', '', $data);
+            $panel = Panel::find($panelId);
+            if (!$panel) {
+                $this->bot->answerCallbackQuery($callbackId, "پنل یافت نشد.", true);
+                return;
+            }
+            $this->bot->answerCallbackQuery($callbackId, "در حال تست اتصال به سرور...", false);
+            try {
+                $adapter = \App\Panels\PanelManager::make($panel);
+                $res = $adapter->testConnection();
+                $msg = $res['success'] ? "✅ {$res['message']}" : "❌ {$res['message']}";
+                $this->bot->sendMessage($chatId, "⚡ <b>نتیجه تست اتصال سرور «" . htmlspecialchars($panel['name']) . "»:</b>\n\n" . $msg);
+            } catch (\Throwable $e) {
+                $this->bot->sendMessage($chatId, "❌ خطا در تست اتصال: " . $e->getMessage());
             }
             return;
         }

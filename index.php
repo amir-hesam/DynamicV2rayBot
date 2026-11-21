@@ -66,6 +66,7 @@ $router->get('/admin/panels', [AdminController::class, 'panels']);
 $router->post('/admin/panels/save', [AdminController::class, 'savePanel']);
 $router->get('/admin/panels/delete/{id}', [AdminController::class, 'deletePanel']);
 $router->get('/admin/panels/test/{id}', [AdminController::class, 'testPanel']);
+$router->post('/admin/panels/set-inbounds', [AdminController::class, 'setPanelInboundsFromClient']);
 
 // Plans
 $router->get('/admin/plans', [AdminController::class, 'plans']);

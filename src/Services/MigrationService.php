@@ -7,6 +7,7 @@ use App\Models\Panel;
 use App\Models\Plan;
 use App\Models\Service;
 use App\Models\User;
+use App\Services\WireGuardHelper;
 use PDO;
 use Throwable;
 
@@ -101,27 +102,28 @@ class MigrationService
                     }
 
                     $balance = 0;
-                    foreach ($u as $k => $val) {
-                        $cleanK = strtolower(trim((string)$k, " `'\""));
-                        if ($cleanK === 'balance' || $cleanK === 'credit' || $cleanK === 'wallet') {
-                            $cleanVal = trim((string)$val, "'\" \t\r\n");
-                            if (is_numeric($cleanVal)) {
-                                $balance = (int)$cleanVal;
-                                break;
-                            }
-                        }
-                    }
-                    if ($balance === 0) {
-                        foreach ([5, 11, 4] as $idx) {
-                            if (isset($u[$idx])) {
-                                $cleanVal = trim((string)$u[$idx], "'\" \t\r\n");
-                                if (is_numeric($cleanVal) && (int)$cleanVal > 0) {
+                    if (isset($u['Balance'])) {
+                        $cleanVal = preg_replace('/[^0-9\-]/', '', (string)$u['Balance']);
+                        if ($cleanVal !== '') $balance = (int)$cleanVal;
+                    } elseif (isset($u['balance'])) {
+                        $cleanVal = preg_replace('/[^0-9\-]/', '', (string)$u['balance']);
+                        if ($cleanVal !== '') $balance = (int)$cleanVal;
+                    } elseif (isset($u[11])) {
+                        $cleanVal = preg_replace('/[^0-9\-]/', '', (string)$u[11]);
+                        if ($cleanVal !== '') $balance = (int)$cleanVal;
+                    } else {
+                        foreach ($u as $k => $val) {
+                            $cleanK = strtolower(trim((string)$k, " `'\""));
+                            if ($cleanK === 'balance' || $cleanK === 'credit' || $cleanK === 'wallet') {
+                                $cleanVal = preg_replace('/[^0-9\-]/', '', (string)$val);
+                                if ($cleanVal !== '') {
                                     $balance = (int)$cleanVal;
                                     break;
                                 }
                             }
                         }
                     }
+                    if ($balance < 0) $balance = 0;
                     
                     $regTime = $u['register'] ?? ($u[21] ?? null);
                     $createdAt = (is_numeric($regTime) && $regTime > 1000000000) 
@@ -158,10 +160,12 @@ class MigrationService
             }
 
             // B. Import Panels
-            $panelNameMap = []; // name_panel => local_panel_id
+            $panelNameMap = []; // name_panel / code_panel => local_panel_id
+            $panelSublinkMap = []; // name_panel / code_panel => sublink URL prefix
             $stmtPanelCheck = $targetPdo->prepare("SELECT id FROM panels WHERE name = ?{$collate}");
-            $stmtPanelInsert = $targetPdo->prepare("INSERT INTO panels (name, type, url, username, password, inbounds_json, is_active, custom_service_enabled, price_per_gb, price_per_day, min_gb, max_gb, min_days, max_days, categories_json) 
-                VALUES (:name, :type, :url, :username, :password, :inbounds_json, :is_active, :custom_service_enabled, :price_per_gb, :price_per_day, :min_gb, :max_gb, :min_days, :max_days, :categories_json)");
+            $stmtPanelInsert = $targetPdo->prepare("INSERT INTO panels (name, type, url, username, password, inbounds_json, is_active, custom_service_enabled, price_per_gb, price_per_day, min_gb, max_gb, min_days, max_days, categories_json, linksubx) 
+                VALUES (:name, :type, :url, :username, :password, :inbounds_json, :is_active, :custom_service_enabled, :price_per_gb, :price_per_day, :min_gb, :max_gb, :min_days, :max_days, :categories_json, :linksubx)");
+            $stmtPanelUpdate = $targetPdo->prepare("UPDATE panels SET inbounds_json = :inbounds_json, linksubx = COALESCE(NULLIF(:linksubx, ''), linksubx) WHERE id = :id");
 
             foreach ($panels as $p) {
                 try {
@@ -229,14 +233,29 @@ class MigrationService
                         if (is_array($d) && !empty($d['f'])) $maxDays = (int)$d['f'];
                     }
 
-                    $inboundId = $p['inboundid'] ?? '1';
-                    $inboundsJson = is_numeric($inboundId) ? json_encode([(int)$inboundId]) : (is_string($inboundId) && str_starts_with($inboundId, '[') ? $inboundId : json_encode([$inboundId]));
+                    $inboundsRaw = $p['inbounds'] ?? ($p[36] ?? null);
+                    if (!empty($inboundsRaw) && (str_starts_with((string)$inboundsRaw, '[') || is_array($inboundsRaw))) {
+                        $inboundsJson = is_string($inboundsRaw) ? $inboundsRaw : json_encode($inboundsRaw);
+                    } else {
+                        $inboundId = $p['inboundid'] ?? ($p[17] ?? '1');
+                        $inboundsJson = is_numeric($inboundId) ? json_encode([(int)$inboundId]) : (is_string($inboundId) && str_starts_with($inboundId, '[') ? $inboundId : json_encode([$inboundId]));
+                    }
+
+                    $linksubx = $p['linksubx'] ?? ($p[16] ?? null);
+                    $codePanel = trim((string)($p['code_panel'] ?? ($p[1] ?? '')));
 
                     $stmtPanelCheck->execute([$name]);
                     $existingPanelId = $stmtPanelCheck->fetchColumn();
 
                     if ($existingPanelId) {
-                        $panelNameMap[$name] = (int)$existingPanelId;
+                        $panelId = (int)$existingPanelId;
+                        $stmtPanelUpdate->execute(['inbounds_json' => $inboundsJson, 'linksubx' => $linksubx, 'id' => $panelId]);
+                        $panelNameMap[$name] = $panelId;
+                        if (!empty($codePanel)) $panelNameMap[$codePanel] = $panelId;
+                        if (!empty($linksubx)) {
+                            $panelSublinkMap[$name] = $linksubx;
+                            if (!empty($codePanel)) $panelSublinkMap[$codePanel] = $linksubx;
+                        }
                     } else {
                         $stmtPanelInsert->execute([
                             'name' => $name,
@@ -254,9 +273,15 @@ class MigrationService
                             'min_days' => $minDays,
                             'max_days' => $maxDays,
                             'categories_json' => '["یک ماهه", "دو ماهه", "سه ماهه", "نامحدود"]',
+                            'linksubx' => $linksubx,
                         ]);
                         $newPanelId = (int)$targetPdo->lastInsertId();
                         $panelNameMap[$name] = $newPanelId;
+                        if (!empty($codePanel)) $panelNameMap[$codePanel] = $newPanelId;
+                        if (!empty($linksubx)) {
+                            $panelSublinkMap[$name] = $linksubx;
+                            if (!empty($codePanel)) $panelSublinkMap[$codePanel] = $linksubx;
+                        }
                         $stats['panels']++;
                     }
                 } catch (\Throwable $e) {
@@ -359,7 +384,19 @@ class MigrationService
                     }
 
                     $loc = trim($inv['Service_location'] ?? ($inv[3] ?? ''));
-                    $panelId = $panelNameMap[$loc] ?? $defaultPanelId;
+                    $normLoc = preg_replace('/\s+/u', ' ', $loc);
+                    $panelId = $panelNameMap[$loc] ?? ($panelNameMap[$normLoc] ?? null);
+                    if (!$panelId) {
+                        foreach ($panelNameMap as $pKey => $pId) {
+                            if (!empty($pKey) && (str_contains($normLoc, $pKey) || str_contains($pKey, $normLoc))) {
+                                $panelId = $pId;
+                                break;
+                            }
+                        }
+                    }
+                    if (!$panelId) {
+                        $panelId = $defaultPanelId;
+                    }
 
                     $vol = (int)($inv['Volume'] ?? ($inv[7] ?? 0));
                     $days = (int)($inv['Service_time'] ?? ($inv[8] ?? 30));
@@ -399,6 +436,33 @@ class MigrationService
 
                     if (empty($subUrl) && str_starts_with($uuid, 'http')) {
                         $subUrl = $uuid;
+                    }
+                    if (empty($subUrl) && !empty($configUsername)) {
+                        $subBase = $panelSublinkMap[$loc] ?? ($panelSublinkMap[$normLoc] ?? null);
+                        if (!$subBase) {
+                            foreach ($panelSublinkMap as $pKey => $pLink) {
+                                if (!empty($pKey) && (str_contains($normLoc, $pKey) || str_contains($pKey, $normLoc))) {
+                                    $subBase = $pLink;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!$subBase && !empty($panelId)) {
+                            $stmtFindSub = $targetPdo->prepare("SELECT linksubx FROM panels WHERE id = ?");
+                            $stmtFindSub->execute([$panelId]);
+                            $subBase = $stmtFindSub->fetchColumn();
+                        }
+                        if (empty($subBase)) {
+                            foreach ($panelSublinkMap as $lnk) {
+                                if (!empty($lnk) && str_starts_with($lnk, 'http')) {
+                                    $subBase = $lnk;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!empty($subBase) && str_starts_with($subBase, 'http')) {
+                            $subUrl = rtrim($subBase, '/') . '/' . $configUsername;
+                        }
                     }
                     if (empty($configLink) && (str_starts_with($uuid, 'vmess://') || str_starts_with($uuid, 'vless://') || str_starts_with($uuid, 'trojan://') || str_starts_with($uuid, 'ss://'))) {
                         $configLink = $uuid;

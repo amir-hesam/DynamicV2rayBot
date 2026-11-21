@@ -26,8 +26,8 @@ class Panel
     public static function create(array $data): int
     {
         $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("INSERT INTO panels (name, type, url, username, password, inbounds_json, is_active, capacity, current_clients, custom_service_enabled, price_per_gb, price_per_day, min_gb, max_gb, min_days, max_days, categories_json) 
-            VALUES (:name, :type, :url, :username, :password, :inbounds_json, :is_active, :capacity, :current_clients, :custom_service_enabled, :price_per_gb, :price_per_day, :min_gb, :max_gb, :min_days, :max_days, :categories_json)");
+        $stmt = $pdo->prepare("INSERT INTO panels (name, type, url, username, password, inbounds_json, is_active, capacity, current_clients, custom_service_enabled, price_per_gb, price_per_day, min_gb, max_gb, min_days, max_days, categories_json, linksubx) 
+            VALUES (:name, :type, :url, :username, :password, :inbounds_json, :is_active, :capacity, :current_clients, :custom_service_enabled, :price_per_gb, :price_per_day, :min_gb, :max_gb, :min_days, :max_days, :categories_json, :linksubx)");
         
         $stmt->execute([
             'name' => $data['name'],
@@ -47,6 +47,7 @@ class Panel
             'min_days' => (int)($data['min_days'] ?? 1),
             'max_days' => (int)($data['max_days'] ?? 365),
             'categories_json' => $data['categories_json'] ?? '["یک ماهه", "دو ماهه", "سه ماهه", "نامحدود"]',
+            'linksubx' => $data['linksubx'] ?? null,
         ]);
 
         return (int)$pdo->lastInsertId();
@@ -71,7 +72,8 @@ class Panel
             max_gb = :max_gb,
             min_days = :min_days,
             max_days = :max_days,
-            categories_json = :categories_json
+            categories_json = :categories_json,
+            linksubx = :linksubx
             WHERE id = :id");
 
         return $stmt->execute([
@@ -92,7 +94,15 @@ class Panel
             'min_days' => (int)($data['min_days'] ?? 1),
             'max_days' => (int)($data['max_days'] ?? 365),
             'categories_json' => $data['categories_json'] ?? '["یک ماهه", "دو ماهه", "سه ماهه", "نامحدود"]',
+            'linksubx' => $data['linksubx'] ?? null,
         ]);
+    }
+
+    public static function updateInbounds(int $id, array $inboundIds): bool
+    {
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare("UPDATE panels SET inbounds_json = ? WHERE id = ?");
+        return $stmt->execute([json_encode(array_values(array_unique(array_map('intval', $inboundIds)))), $id]);
     }
 
     public static function delete(int $id): bool
