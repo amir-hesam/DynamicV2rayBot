@@ -191,6 +191,23 @@
 <body class="min-h-screen pb-32 flex flex-col antialiased">
 
     <!-- ============================================================== -->
+    <!-- TELEGRAM CLIENT ACCESS GATE ERROR OVERLAY                     -->
+    <!-- ============================================================== -->
+    <div id="telegram-gate-overlay" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-2xl hidden flex flex-col items-center justify-center p-6 text-center text-white">
+        <div class="w-20 h-20 rounded-3xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-4xl mb-5 shadow-2xl shadow-indigo-600/30">
+            📱
+        </div>
+        <h2 class="text-xl font-bold mb-2">دسترسی مستقیم از مرورگر مسدود است</h2>
+        <p class="text-xs text-slate-300 max-w-sm leading-relaxed mb-6">
+            این مینی‌اپ اختصاصی است و جهت شناسایی امن حساب کاربری شما باید مستقیماً از طریق دکمه «ورود به مینی‌اپ» درون ربات تلگرام باز شود.
+        </p>
+        <a id="telegram-bot-link" href="#" class="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-xl shadow-indigo-600/40 transition active:scale-95 flex items-center gap-2">
+            <span>🚀</span>
+            <span>ورود از طریق ربات تلگرام</span>
+        </a>
+    </div>
+
+    <!-- ============================================================== -->
     <!-- TOP STICKY HEADER                                              -->
     <!-- ============================================================== -->
     <header class="app-header px-4 py-3 sticky top-0 z-40 flex items-center justify-between transition-colors">
@@ -956,6 +973,24 @@
             let tgUser = getTelegramUser();
             let tgId = tgUser?.id || '';
 
+            // Gate Check: If opened directly in a regular web browser without Telegram identification
+            const hasTelegramContext = (window.Telegram?.WebApp?.initData && window.Telegram.WebApp.initData.length > 5) || 
+                                       (window.Telegram?.WebApp?.initDataUnsafe?.user?.id) || 
+                                       (tgId && tgId !== '' && tgId !== '0');
+
+            if (!hasTelegramContext) {
+                const overlay = document.getElementById('telegram-gate-overlay');
+                if (overlay) {
+                    overlay.classList.remove('hidden');
+                    const botLink = document.getElementById('telegram-bot-link');
+                    if (botLink) {
+                        const botUser = '<?= htmlspecialchars($settings['bot_username'] ?? '') ?>';
+                        botLink.href = botUser ? `https://t.me/${botUser}` : 'tg://resolve';
+                    }
+                }
+                return;
+            }
+
             // Immediate optimistic UI render to avoid placeholder flicker
             if (tgUser && tgUser.id) {
                 const pName = document.getElementById('profile-name');
@@ -982,6 +1017,15 @@
                 if (data.success) {
                     appData = data;
                     currentUser = data.user;
+
+                    // If server did not recognize user, show access gate
+                    if (!currentUser) {
+                        const overlay = document.getElementById('telegram-gate-overlay');
+                        if (overlay) {
+                            overlay.classList.remove('hidden');
+                        }
+                        return;
+                    }
 
                     // Header & User Info
                     const isAdmin = currentUser?.is_admin || appData.is_admin;

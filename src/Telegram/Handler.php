@@ -229,18 +229,51 @@ class Handler
         }
     }
 
-    private function showPlans(int|string $chatId): void
+    private function showPlans(int|string $chatId, ?int $messageId = null): void
     {
-        $plans = Plan::all(true);
-        if (empty($plans)) {
-            $this->bot->sendMessage($chatId, "در حال حاضر هیچ پلن فعالی موجود نیست. لطفاً بعداً بررسی نمایید.");
+        $panels = Panel::all(true);
+        if (empty($panels)) {
+            $this->bot->sendMessage($chatId, "در حال حاضر هیچ سرور فعالی موجود نیست. لطفاً بعداً بررسی نمایید.");
             return;
         }
 
-        $text = "📋 <b>لیست تعرفه‌ها و پلن‌های پرسرعت:</b>\n\n";
-        $text .= "جهت خرید هر یک از پلن‌ها، روی دکمه مربوطه کلیک کنید:";
+        $text = "🌐 <b>مرحله اول: انتخاب لوکیشن و سرور</b>\n\n";
+        $text .= "لطفاً سرور مورد نظر خود را جهت مشاهده پلن‌ها انتخاب نمایید:";
 
-        $this->bot->sendMessage($chatId, $text, Keyboard::plansKeyboard($plans));
+        if ($messageId) {
+            $this->bot->editMessageText($chatId, $messageId, $text, Keyboard::panelsKeyboard($panels));
+        } else {
+            $this->bot->sendMessage($chatId, $text, Keyboard::panelsKeyboard($panels));
+        }
+    }
+
+    private function showPanelPlans(int|string $chatId, int $panelId, ?int $messageId = null): void
+    {
+        $panel = Panel::find($panelId);
+        $plans = Plan::getByPanelId($panelId, true);
+
+        if (empty($plans)) {
+            $msg = "در حال حاضر هیچ پلن فعالی برای سرور <b>" . htmlspecialchars($panel['name'] ?? '') . "</b> ثبت نشده است.";
+            $inline = [
+                [['text' => '🔙 بازگشت به لیست سرورها', 'callback_data' => 'back_to_panels']]
+            ];
+            if ($messageId) {
+                $this->bot->editMessageText($chatId, $messageId, $msg, ['inline_keyboard' => $inline]);
+            } else {
+                $this->bot->sendMessage($chatId, $msg, ['inline_keyboard' => $inline]);
+            }
+            return;
+        }
+
+        $panelName = $panel ? $panel['name'] : 'سرور انتخابی';
+        $text = "📦 <b>پلن‌های فعال سرور {$panelName}:</b>\n\n";
+        $text .= "جهت خرید هر یک از کانفیگ‌ها، روی پلن مورد نظر کلیک کنید:";
+
+        if ($messageId) {
+            $this->bot->editMessageText($chatId, $messageId, $text, Keyboard::plansKeyboard($plans, $panelId));
+        } else {
+            $this->bot->sendMessage($chatId, $text, Keyboard::plansKeyboard($plans, $panelId));
+        }
     }
 
     private function showMyServices(array $user): void
@@ -330,6 +363,21 @@ class Handler
 
         $user = User::findOrCreate($from);
         $isAdmin = User::isAdmin($from['id']);
+
+        // Select panel callback (Step 1 of buying service)
+        if (str_starts_with($data, 'select_panel_')) {
+            $panelId = (int)str_replace('select_panel_', '', $data);
+            $this->bot->answerCallbackQuery($callbackId);
+            $this->showPanelPlans($chatId, $panelId, $messageId);
+            return;
+        }
+
+        // Back to panels list
+        if ($data === 'back_to_panels') {
+            $this->bot->answerCallbackQuery($callbackId);
+            $this->showPlans($chatId, $messageId);
+            return;
+        }
 
         // Buy plan click
         if (str_starts_with($data, 'buy_plan_')) {

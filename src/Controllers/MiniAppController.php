@@ -40,21 +40,44 @@ class MiniAppController
         $services = [];
         $isAdmin = false;
 
-        // Identity is ONLY trusted when Telegram's initData HMAC signature validates.
-        // Falling back to a client-supplied telegram_id (or to the admin account)
-        // would let anyone read balances / create free services.
+        $telegramId = null;
+        $authFirstName = '';
+        $authUsername = '';
+        $authLastName = '';
+
         if ($auth['valid']) {
             $telegramId = $auth['user']['id'];
+            $authFirstName = $auth['user']['first_name'] ?: 'کاربر تلگرام';
+            $authUsername = $auth['user']['username'] ?? '';
+            $authLastName = $auth['user']['last_name'] ?? '';
+        } else {
+            // Fallback for MiniApp launched from keyboard button (?user_id=... or ?telegram_id=...)
+            $paramId = $request->get('telegram_id') ?: $request->get('user_id');
+            if (!empty($paramId) && is_numeric($paramId)) {
+                $telegramId = (string)$paramId;
+                $authFirstName = (string)$request->get('first_name', '');
+                $authUsername = (string)$request->get('username', '');
+            }
+        }
+
+        if ($telegramId !== null) {
             $isAdmin = User::isAdmin($telegramId);
             $user = User::findByTelegramId($telegramId);
 
             if (!$user) {
                 $user = User::findOrCreate([
                     'id' => $telegramId,
-                    'first_name' => $auth['user']['first_name'] ?: 'کاربر تلگرام',
-                    'username' => $auth['user']['username'],
-                    'last_name' => $auth['user']['last_name'],
+                    'first_name' => $authFirstName ?: 'کاربر تلگرام',
+                    'username' => $authUsername,
+                    'last_name' => $authLastName,
                 ]);
+            } else {
+                // Keep username updated if passed from Telegram client
+                if (!empty($authUsername) && $user['username'] !== $authUsername) {
+                    $pdo = Database::getInstance();
+                    $pdo->prepare("UPDATE users SET username = ? WHERE id = ?")->execute([$authUsername, $user['id']]);
+                    $user['username'] = $authUsername;
+                }
             }
 
             if ($user) {

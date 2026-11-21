@@ -69,9 +69,35 @@ class Keyboard
     }
 
     /**
-     * Plans Inline Keyboard
+     * Panels Selection Keyboard for Bot (Step 1 of buying service)
      */
-    public static function plansKeyboard(array $plans): array
+    public static function panelsKeyboard(array $panels): array
+    {
+        $inline = [];
+        $row = [];
+        foreach ($panels as $panel) {
+            $name = $panel['name'];
+            $row[] = ['text' => "🌐 {$name}", 'callback_data' => 'select_panel_' . $panel['id']];
+            if (count($row) === 2) {
+                $inline[] = $row;
+                $row = [];
+            }
+        }
+        if (!empty($row)) {
+            $inline[] = $row;
+        }
+
+        $inline[] = [
+            ['text' => '🔙 بازگشت به منوی اصلی', 'callback_data' => 'back_to_main']
+        ];
+
+        return ['inline_keyboard' => $inline];
+    }
+
+    /**
+     * Plans Inline Keyboard for a specific panel (Step 2 of buying service)
+     */
+    public static function plansKeyboard(array $plans, int $panelId = 0): array
     {
         $inline = [];
         foreach ($plans as $plan) {
@@ -86,8 +112,9 @@ class Keyboard
             ];
         }
 
+        $backCallback = $panelId > 0 ? 'back_to_panels' : 'back_to_main';
         $inline[] = [
-            ['text' => '🔙 بازگشت به منوی اصلی', 'callback_data' => 'back_to_main']
+            ['text' => '🔙 بازگشت', 'callback_data' => $backCallback]
         ];
 
         return ['inline_keyboard' => $inline];

@@ -17,6 +17,19 @@ class Plan
         return $pdo->query($sql)->fetchAll();
     }
 
+    public static function getByPanelId(int $panelId, bool $activeOnly = true): array
+    {
+        $pdo = Database::getInstance();
+        $sql = "SELECT p.*, pn.name as panel_name FROM plans p 
+                LEFT JOIN panels pn ON p.panel_id = pn.id 
+                WHERE (p.panel_id = ? OR p.panel_id = 0)" .
+                ($activeOnly ? " AND p.is_active = 1" : "") .
+                " ORDER BY p.sort_order ASC, p.id DESC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$panelId]);
+        return $stmt->fetchAll();
+    }
+
     public static function find(int $id): ?array
     {
         $pdo = Database::getInstance();
