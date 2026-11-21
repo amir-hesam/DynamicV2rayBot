@@ -19,6 +19,13 @@ header('Content-Type: application/json; charset=utf-8');
 try {
     Database::initSchema();
 
+    // Reject forged updates (Telegram sends X-Telegram-Bot-Api-Secret-Token)
+    if (!\App\Telegram\WebhookAuth::verify()) {
+        http_response_code(403);
+        echo json_encode(['ok' => false, 'error' => 'unauthorized']);
+        exit;
+    }
+
     $input = file_get_contents('php://input');
     $update = json_decode($input, true);
 

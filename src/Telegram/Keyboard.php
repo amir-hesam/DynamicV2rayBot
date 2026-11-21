@@ -56,9 +56,9 @@ class Keyboard
                 [['text' => '📋 تعرفه و پلن‌ها'], ['text' => '💳 کارت به کارت و شارژ']],
                 [['text' => '📖 راهنمای اتصال'], ['text' => '📞 پشتیبانی تلگرام']]
             ];
-            if ($isAdmin) {
-                array_unshift($keyboard, [['text' => '🛠 پنل مدیریت و آمار']]);
-            }
+            // NOTE: no admin row needed here — when $isAdmin is true the keyboard
+            // already contains the admin button above, so this block is only
+            // ever reached for regular users.
         }
 
         return [

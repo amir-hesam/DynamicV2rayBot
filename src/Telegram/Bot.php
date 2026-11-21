@@ -40,16 +40,43 @@ class Bot
             curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($params));
         }
 
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
         curl_setopt($ch, CURLOPT_TIMEOUT, 30);
 
         $response = curl_exec($ch);
+        $curlErrNo = curl_errno($ch);
+        $curlErr = curl_error($ch);
         if (PHP_VERSION_ID < 80500) {
             @curl_close($ch);
         }
 
-        $decoded = json_decode($response, true);
-        return is_array($decoded) ? $decoded : ['ok' => false, 'raw' => $response];
+        // Some minimal shared hosts ship cURL without an up-to-date CA bundle.
+        // Retry once without peer verification (and log it) instead of leaving
+        // the whole bot dead on that host.
+        $sslFailure = $response === false && (
+            $curlErrNo === 60 /* CURLE_SSL_CACERT */
+            || stripos($curlErr, 'certificate') !== false
+            || stripos($curlErr, 'SSL') !== false
+            || stripos($curlErr, 'CA ') !== false
+        );
+        if ($sslFailure) {
+            error_log("Telegram Bot API: SSL verification failed ({$curlErr}); retrying without CA verification");
+            $ch = curl_init($this->apiUrl . $method);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $hasFile ? $params : http_build_query($params));
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            $response = curl_exec($ch);
+            if (PHP_VERSION_ID < 80500) {
+                @curl_close($ch);
+            }
+        }
+
+        $decoded = json_decode((string)$response, true);
+        return is_array($decoded) ? $decoded : ['ok' => false, 'raw' => (string)$response];
     }
 
     public function sendDocument(int|string $chatId, string $filePath, string $caption = '', array $replyMarkup = [], string $parseMode = 'HTML', ?int $messageThreadId = null): array
@@ -91,7 +118,7 @@ class Bot
         return $this->request('sendMessage', $params);
     }
 
-    public function sendPhoto(int|string $chatId, string $photo, string $caption = '', array $replyMarkup = [], string $parseMode = 'HTML', ?int $messageThreadId = null): array
+    public function sendPhoto(int|string $chatId, string|\CURLFile $photo, string $caption = '', array $replyMarkup = [], string $parseMode = 'HTML', ?int $messageThreadId = null): array
     {
         $params = [
             'chat_id' => $chatId,
@@ -198,7 +225,31 @@ class Bot
 
     public function setWebhook(string $url): array
     {
-        return $this->request('setWebhook', ['url' => $url]);
+        // Register a secret token so incoming updates can be authenticated
+        // (see WebhookAuth). Persist it only after Telegram confirms.
+        $secret = (string)Setting::get('webhook_secret', '');
+        if ($secret === '') {
+            $secret = bin2hex(random_bytes(16));
+        }
+
+        $res = $this->request('setWebhook', [
+            'url' => $url,
+            'secret_token' => $secret,
+        ]);
+
+        if (!empty($res['ok'])) {
+            Setting::set('webhook_secret', $secret);
+        } else {
+            // Older/limited API: retry without the secret and disable verification
+            // so the bot does not end up rejecting every update.
+            $fallback = $this->request('setWebhook', ['url' => $url]);
+            if (!empty($fallback['ok'])) {
+                Setting::set('webhook_secret', '');
+                return $fallback;
+            }
+        }
+
+        return $res;
     }
 
     public function deleteWebhook(): array

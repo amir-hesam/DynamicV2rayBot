@@ -145,20 +145,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $sql = preg_replace('/DEFAULT\s+[\'"][^\x00-\x7F]+[\'"]/u', '', $sql);
             }
 
+            // array_filter() already dropped empty statements
             $statements = array_filter(array_map('trim', explode(';', $sql)));
             foreach ($statements as $stmt) {
-                if (!empty($stmt)) {
-                    if ($dbDriver === 'mysql' && stripos($stmt, 'CREATE TABLE') !== false) {
-                        $stmt .= ' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci';
-                    }
-                    try {
-                        $pdo->exec($stmt);
-                    } catch (\Throwable $ex) {
-                        // If table already exists or minor syntax notice, log and proceed
-                        error_log("Schema statement notice: " . $ex->getMessage());
-                        if (!str_contains($ex->getMessage(), 'already exists')) {
-                            throw $ex;
-                        }
+                if ($dbDriver === 'mysql' && stripos($stmt, 'CREATE TABLE') !== false) {
+                    $stmt .= ' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci';
+                }
+                try {
+                    $pdo->exec($stmt);
+                } catch (\Throwable $ex) {
+                    // If table already exists or minor syntax notice, log and proceed
+                    error_log("Schema statement notice: " . $ex->getMessage());
+                    if (!str_contains($ex->getMessage(), 'already exists')) {
+                        throw $ex;
                     }
                 }
             }
@@ -258,8 +257,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $existingUserId = $stmtUserCheck->fetchColumn();
 
                 if ($existingUserId) {
-                    $pdo->prepare("UPDATE users SET is_admin = 1, balance = GREATEST(balance, 10000000) WHERE id = ?")
-                        ->execute([$existingUserId]);
+                    // SQLite has no GREATEST() — compute the new balance in PHP
+                    $stmtBal = $pdo->prepare("SELECT balance FROM users WHERE id = ?");
+                    $stmtBal->execute([$existingUserId]);
+                    $currentBal = (int)$stmtBal->fetchColumn();
+                    $newBal = max($currentBal, 10000000);
+                    $pdo->prepare("UPDATE users SET is_admin = 1, balance = ? WHERE id = ?")
+                        ->execute([$newBal, $existingUserId]);
                 } else {
                     $stmtUserInsert = $pdo->prepare("INSERT INTO users (telegram_id, username, first_name, last_name, balance, step, step_data, is_admin) 
                         VALUES (?, ?, ?, '', 10000000, 'idle', '{}', 1)");
@@ -306,21 +310,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $planStmt->execute(['پلن طلایی ۳ ماهه', '۱۲۰ گیگابایت - ۲ کاربره همزمان - بدون قطعی', 279000, 120, 90, 2, 3]);
             }
 
-            // 8. Auto-register Webhook if selected
+            // 8. Auto-register Webhook if selected (with a secret token so that
+            //    WebhookAuth can reject forged updates)
             $webhookResultMsg = null;
             if ($autoWebhook && !empty($botToken)) {
                 $webhookUrl = $proto . $domain . '/webhook.php';
-                $tgApi = "https://api.telegram.org/bot{$botToken}/setWebhook?url=" . urlencode($webhookUrl);
+                $webhookSecret = bin2hex(random_bytes(16));
+                $tgApi = "https://api.telegram.org/bot{$botToken}/setWebhook?url="
+                    . urlencode($webhookUrl) . "&secret_token=" . urlencode($webhookSecret);
 
                 $ch = curl_init($tgApi);
                 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
                 curl_setopt($ch, CURLOPT_TIMEOUT, 10);
                 $resp = curl_exec($ch);
+                $respErr = curl_error($ch);
                 curl_close($ch);
 
-                $dec = json_decode($resp, true);
+                // Retry without CA verification on hosts with an outdated CA bundle
+                if ($resp === false && stripos($respErr, 'SSL') !== false) {
+                    $ch = curl_init($tgApi);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+                    $resp = curl_exec($ch);
+                    curl_close($ch);
+                }
+
+                $dec = json_decode((string)$resp, true);
                 if ($dec['ok'] ?? false) {
+                    // Persist the secret so webhook.php can verify the header
+                    $secretStmt = $pdo->prepare("INSERT INTO settings (`key`, `value`) VALUES ('webhook_secret', ?)
+                        ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)");
+                    try {
+                        $secretStmt->execute([$webhookSecret]);
+                    } catch (Exception $e) {
+                        // SQLite dialect fallback
+                        $pdo->prepare("INSERT OR REPLACE INTO settings (`key`, `value`) VALUES ('webhook_secret', ?)")
+                            ->execute([$webhookSecret]);
+                    }
                     $webhookResultMsg = "وبهوک تلگرام با موفقیت روی آدرس $webhookUrl تنظیم شد!";
                 } else {
                     $webhookResultMsg = "تنظیم خودکار وبهوک با خطا مواجه شد: " . ($dec['description'] ?? 'خطای تلگرام');

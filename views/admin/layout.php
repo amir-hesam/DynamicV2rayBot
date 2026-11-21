@@ -6,6 +6,7 @@
     <title><?= htmlspecialchars($title ?? 'پنل مدیریت') ?> - VPN Master Bot</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { font-family: 'Vazirmatn', sans-serif; }
     </style>

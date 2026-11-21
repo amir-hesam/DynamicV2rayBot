@@ -33,26 +33,27 @@ class MiniAppController
 
     public function getData(Request $request): void
     {
-        $telegramId = $request->get('telegram_id');
-        $adminTelegramId = Setting::get('admin_telegram_id');
+        $initData = (string)$request->get('init_data', '');
+        $auth = \App\Telegram\WebAppAuth::validate($initData !== '' ? $initData : null);
+
         $user = null;
         $services = [];
         $isAdmin = false;
 
-        // If no telegram_id provided (e.g. testing in browser preview), fallback to admin for seamless testing
-        if (empty($telegramId) && !empty($adminTelegramId)) {
-            $telegramId = $adminTelegramId;
-        }
-
-        if (!empty($telegramId)) {
+        // Identity is ONLY trusted when Telegram's initData HMAC signature validates.
+        // Falling back to a client-supplied telegram_id (or to the admin account)
+        // would let anyone read balances / create free services.
+        if ($auth['valid']) {
+            $telegramId = $auth['user']['id'];
             $isAdmin = User::isAdmin($telegramId);
             $user = User::findByTelegramId($telegramId);
 
             if (!$user) {
                 $user = User::findOrCreate([
                     'id' => $telegramId,
-                    'first_name' => $isAdmin ? 'مدیر ارشد' : 'کاربر تلگرام',
-                    'username' => $isAdmin ? 'admin' : ''
+                    'first_name' => $auth['user']['first_name'] ?: 'کاربر تلگرام',
+                    'username' => $auth['user']['username'],
+                    'last_name' => $auth['user']['last_name'],
                 ]);
             }
 
@@ -65,12 +66,7 @@ class MiniAppController
                     $user['balance'] = $newBal;
                 }
 
-                $rawServices = Service::getUserServices($user['id']);
-                // Auto sync up to 5 active services
-                foreach ($rawServices as $srv) {
-                    $synced = Service::syncWithPanel($srv['id']);
-                    $services[] = $synced ?: $srv;
-                }
+                $services = Service::getUserServices($user['id']);
             }
         }
 
@@ -139,7 +135,7 @@ class MiniAppController
         Response::json([
             'success' => true,
             'is_admin' => $isAdmin,
-            'admin_telegram_id' => $adminTelegramId,
+            'auth' => $auth['valid'],
             'user' => $user ? [
                 'id' => $user['id'],
                 'telegram_id' => $user['telegram_id'],
@@ -173,25 +169,28 @@ class MiniAppController
     public function submitOrder(Request $request): void
     {
         $data = $request->all();
-        $adminTelegramId = Setting::get('admin_telegram_id');
-        $telegramId = $data['telegram_id'] ?? null;
-        if (empty($telegramId) && !empty($adminTelegramId)) {
-            $telegramId = $adminTelegramId;
-        }
-
         $paymentMethod = $data['payment_method'] ?? 'card'; // 'wallet', 'card', 'admin_test'
 
-        if (empty($telegramId)) {
-            Response::json(['success' => false, 'error' => 'شناسه کاربری تلگرام ارسال نشده است.'], 400);
+        // Identity must come from Telegram-signed initData — never from client fields
+        $initData = (string)($data['init_data'] ?? '');
+        $auth = \App\Telegram\WebAppAuth::validate($initData !== '' ? $initData : null);
+        if (!$auth['valid']) {
+            Response::json([
+                'success' => false,
+                'error' => 'هویت شما تایید نشد. لطفاً مینی‌اپ را از داخل ربات تلگرام باز کنید و دوباره تلاش کنید.',
+                'code' => 'unauthorized',
+            ], 401);
         }
 
+        $telegramId = $auth['user']['id'];
         $isAdmin = User::isAdmin($telegramId);
         $user = User::findByTelegramId($telegramId);
         if (!$user) {
             $user = User::findOrCreate([
                 'id' => $telegramId,
-                'first_name' => $data['first_name'] ?? ($isAdmin ? 'مدیر ارشد' : 'کاربر مینی اپ'),
-                'username' => $data['username'] ?? ($isAdmin ? 'admin' : ''),
+                'first_name' => $auth['user']['first_name'] ?: 'کاربر مینی اپ',
+                'username' => $auth['user']['username'],
+                'last_name' => $auth['user']['last_name'],
             ]);
         }
 
@@ -255,7 +254,9 @@ class MiniAppController
             $price = ($vol * $pricePerGb) + ($days * $pricePerDay);
             $planName = "سرویس دلخواه ({$vol}GB - {$days} روز)";
 
-            // Create temporary on-the-fly plan for order
+            // Create temporary on-the-fly plan for order.
+            // is_active = 0 keeps it OUT of the public plan lists (bot + mini app)
+            // while still satisfying the orders.plan_id foreign key on approval.
             $planId = Plan::create([
                 'name' => $planName,
                 'description' => "سرویس سفارشی کاربر روی سرور {$panel['name']}",
@@ -266,7 +267,7 @@ class MiniAppController
                 'ip_limit' => (int)($data['ip_limit'] ?? 1),
                 'hwid_limit' => (int)($data['hwid_limit'] ?? 0),
                 'panel_id' => $panel['id'],
-                'is_active' => 1,
+                'is_active' => 0,
                 'sort_order' => 999,
             ]);
         } else {
@@ -319,8 +320,13 @@ class MiniAppController
                 }
             }
 
-            // Deduct balance
-            User::deductBalance($user['id'], $price);
+            // Deduct balance (atomic check-and-set inside deductBalance)
+            if (!User::deductBalance($user['id'], $price)) {
+                Response::json([
+                    'success' => false,
+                    'error' => 'موجودی کیف پول شما کافی نیست یا همزمان توسط درخواست دیگری کسر شده است.'
+                ], 400);
+            }
 
             // Create and immediately approve order
             $orderId = \App\Models\Order::create(
@@ -380,11 +386,24 @@ class MiniAppController
     public function syncService(Request $request): void
     {
         $id = (int)$request->get('id', 0);
-        $service = Service::syncWithPanel($id);
 
-        if (!$service) {
+        // Ownership check: only the signed-in owner may sync/see a service
+        $initData = (string)$request->get('init_data', '');
+        $auth = \App\Telegram\WebAppAuth::validate($initData !== '' ? $initData : null);
+        if (!$auth['valid']) {
+            Response::json(['success' => false, 'error' => 'هویت شما تایید نشد.'], 401);
+        }
+        $owner = User::findByTelegramId($auth['user']['id']);
+        if (!$owner) {
+            Response::json(['success' => false, 'error' => 'کاربر یافت نشد.'], 404);
+        }
+
+        $service = Service::find($id);
+        if (!$service || (int)$service['user_id'] !== (int)$owner['id']) {
             Response::json(['success' => false, 'error' => 'سرویس یافت نشد.'], 404);
         }
+
+        $service = Service::syncWithPanel($id) ?: $service;
 
         $trafficGb = (int)$service['traffic_gb'];
         $usedBytes = (int)($service['used_traffic_bytes'] ?? 0);
@@ -416,11 +435,17 @@ class MiniAppController
     public function topupWallet(Request $request): void
     {
         $data = $request->all();
-        $telegramId = $data['telegram_id'] ?? null;
         $amount = (int)($data['amount'] ?? 0);
         $receiptText = trim($data['receipt_text'] ?? '');
 
-        if (empty($telegramId) || $amount < 10000) {
+        $initData = (string)($data['init_data'] ?? '');
+        $auth = \App\Telegram\WebAppAuth::validate($initData !== '' ? $initData : null);
+        if (!$auth['valid']) {
+            Response::json(['success' => false, 'error' => 'هویت شما تایید نشد. لطفاً مینی‌اپ را از داخل ربات تلگرام باز کنید.'], 401);
+        }
+        $telegramId = $auth['user']['id'];
+
+        if ($amount < 10000) {
             Response::json(['success' => false, 'error' => 'حداقل مبلغ شارژ ۱۰,۰۰۰ تومان می‌باشد.'], 400);
         }
 
@@ -429,8 +454,7 @@ class MiniAppController
             Response::json(['success' => false, 'error' => 'کاربر یافت نشد.'], 404);
         }
 
-        // Create wallet top-up plan placeholder
-        $pdo = Database::getInstance();
+        // Create wallet top-up order (plan_id = 0 → approved as balance credit)
         $orderId = \App\Models\Order::create(
             userId: $user['id'],
             planId: 0,

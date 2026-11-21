@@ -22,17 +22,23 @@ use App\Services\BackupService;
 // Ensure database schema is initialized
 Database::initSchema();
 
-// Verify key if accessed via HTTP
+// Verify key if accessed via HTTP (fail-closed: no secret configured → access denied)
 if (php_sapi_name() !== 'cli') {
     $cronSecret = Setting::get('cron_secret_key');
-    if (!empty($cronSecret)) {
-        $reqKey = $_GET['key'] ?? '';
-        if ($reqKey !== $cronSecret) {
-            http_response_code(403);
-            die(json_encode(['ok' => false, 'error' => 'Forbidden: Invalid cron secret key']));
-        }
+    if (empty($cronSecret)) {
+        http_response_code(403);
+        die(json_encode(['ok' => false, 'error' => 'Forbidden: cron_secret_key is not configured. Set it first.']));
+    }
+    $reqKey = (string)($_GET['key'] ?? '');
+    if (!hash_equals((string)$cronSecret, $reqKey)) {
+        http_response_code(403);
+        die(json_encode(['ok' => false, 'error' => 'Forbidden: Invalid cron secret key']));
     }
 }
+
+// Long backups must not be killed by shared-hosting max_execution_time
+@set_time_limit(0);
+ignore_user_abort(true);
 
 // Execute Backup Job
 $res = BackupService::runBackupJob();

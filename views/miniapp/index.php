@@ -970,6 +970,8 @@
 
             try {
                 const query = new URLSearchParams();
+                const init_data = window.Telegram?.WebApp?.initData || '';
+                if (init_data) query.set('init_data', init_data);
                 if (tgId) query.set('telegram_id', tgId);
                 if (tgUser?.first_name) query.set('first_name', tgUser.first_name);
                 if (tgUser?.username) query.set('username', tgUser.username);
@@ -1016,15 +1018,15 @@
                         document.getElementById('profile-name').innerText = tgUser.first_name || 'کاربر گرامی';
                         document.getElementById('profile-username').innerText = tgUser.username ? ('@' + tgUser.username) : '@user';
                         document.getElementById('profile-tgid').innerText = 'ID: ' + tgUser.id;
-                    } else if (appData.admin_telegram_id) {
-                        document.getElementById('header-user-text').innerText = 'حالت پیش‌نمایش مدیر';
-                        document.getElementById('profile-name').innerText = 'مدیر سیستم';
-                        document.getElementById('profile-username').innerText = '@admin';
-                        document.getElementById('profile-tgid').innerText = 'ID: ' + appData.admin_telegram_id;
+                    } else if (data.auth === false) {
+                        document.getElementById('header-user-text').innerText = 'حالت پیش‌نمایش';
+                        document.getElementById('profile-name').innerText = 'کاربر مهمان';
+                        document.getElementById('profile-username').innerText = '@user';
+                        document.getElementById('profile-tgid').innerText = 'ID: -';
                         const roleBadge = document.getElementById('profile-role-badge');
                         if (roleBadge) {
-                            roleBadge.className = 'px-3 py-1 rounded-full bg-amber-500/15 text-amber-500 border border-amber-500/30 text-[11px] font-bold flex items-center gap-1 shadow-sm';
-                            roleBadge.innerHTML = '👑 مدیر کل (پیش‌نمایش)';
+                            roleBadge.className = 'px-3 py-1 rounded-full bg-slate-500/15 text-slate-400 border border-slate-500/30 text-[11px] font-bold flex items-center gap-1 shadow-sm';
+                            roleBadge.innerHTML = '👀 پیش‌نمایش (ورود از ربات)';
                         }
                     }
 
@@ -1562,16 +1564,18 @@
             btn.innerText = 'در حال پردازش سفارش...';
 
             let tgUser = getTelegramUser();
-            let tgId = currentUser?.telegram_id || tgUser?.id || appData?.admin_telegram_id || '';
+            let tgId = currentUser?.telegram_id || tgUser?.id || '';
+            const init_data = window.Telegram?.WebApp?.initData || '';
 
-            if (!tgId) {
-                showToast('شناسه تلگرام یافت نشد. لطفاً از طریق ربات باز کنید.', 'error');
+            if (!init_data) {
+                showToast('لطفاً مینی‌اپ را از داخل ربات تلگرام باز کنید.', 'error');
                 btn.disabled = false;
                 btn.innerText = 'تایید و ثبت نهایی سفارش';
                 return;
             }
 
             const formData = new FormData();
+            formData.append('init_data', init_data);
             formData.append('telegram_id', tgId);
             formData.append('first_name', currentUser?.first_name || tgUser?.first_name || 'کاربر');
             formData.append('username', currentUser?.username || tgUser?.username || '');
@@ -1637,13 +1641,20 @@
             }
 
             let tgUser = getTelegramUser();
-            let tgId = currentUser?.telegram_id || tgUser?.id || appData?.admin_telegram_id || '';
+            let tgId = currentUser?.telegram_id || tgUser?.id || '';
+            const init_data = window.Telegram?.WebApp?.initData || '';
+
+            if (!init_data) {
+                showToast('لطفاً مینی‌اپ را از داخل ربات تلگرام باز کنید.', 'error');
+                return;
+            }
 
             const btn = document.getElementById('btn-submit-wallet');
             btn.disabled = true;
             btn.innerText = 'در حال ارسال فیش...';
 
             const formData = new FormData();
+            formData.append('init_data', init_data);
             formData.append('telegram_id', tgId);
             formData.append('amount', amount);
             formData.append('payment_method', 'card');

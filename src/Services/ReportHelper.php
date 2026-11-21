@@ -225,10 +225,11 @@ class ReportHelper
      */
     public static function reportPurchase(array $order, array $user, array $service, ?string $panelName = null): void
     {
+        $serviceId = $service['id'] ?? ($service['service_id'] ?? 0);
         $text = "🛍 <b>گزارش خرید اشتراک جدید</b>\n\n";
-        $text .= "👤 <b>کاربر:</b> " . htmlspecialchars($user['first_name'] ?? 'بی‌نام') . " (@" . ($user['username'] ?: 'ندارد') . ")\n";
-        $text .= "🆔 <b>شناسه تلگرام:</b> <code>{$user['telegram_id']}</code>\n";
-        $text .= "📦 <b>سرویس:</b> #{$service['id']} ({$service['traffic_gb']} GB - {$service['days']} روز)\n";
+        $text .= "👤 <b>کاربر:</b> " . htmlspecialchars($user['first_name'] ?? 'بی‌نام') . " (@" . (($user['username'] ?? '') ?: 'ندارد') . ")\n";
+        $text .= "🆔 <b>شناسه تلگرام:</b> <code>" . ($user['telegram_id'] ?? 0) . "</code>\n";
+        $text .= "📦 <b>سرویس:</b> #{$serviceId} ({$service['traffic_gb']} GB - {$service['days']} روز)\n";
         $text .= "🌐 <b>سرور متصل:</b> " . ($panelName ?: 'سرور پیش‌فرض') . "\n";
         $text .= "💰 <b>مبلغ پرداختی:</b> " . number_format($order['amount']) . " تومان\n";
         $text .= "📅 <b>تاریخ ثبت:</b> " . date('Y-m-d H:i:s');
@@ -243,7 +244,7 @@ class ReportHelper
     {
         $text = "💰 <b>گزارش مالی و کارت‌به‌کارت جدید</b>\n\n";
         $text .= "🧾 <b>سفارش:</b> #{$order['id']}\n";
-        $text .= "👤 <b>کاربر:</b> " . htmlspecialchars($user['first_name'] ?? '') . " (<code>{$user['telegram_id']}</code>)\n";
+        $text .= "👤 <b>کاربر:</b> " . htmlspecialchars($user['first_name'] ?? '') . " (<code>" . ($user['telegram_id'] ?? 0) . "</code>)\n";
         $text .= "💳 <b>مبلغ فیش:</b> " . number_format($order['amount']) . " تومان\n";
         if ($note) {
             $text .= "📝 <b>توضیحات:</b> {$note}\n";

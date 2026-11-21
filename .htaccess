@@ -7,8 +7,11 @@
     RewriteBase /
 
     # 1. Protect sensitive files and directories from web access
-    RewriteRule ^(database|config|src|views)/ - [F,L]
-    RewriteRule \.(db|sql|log|env|json|md)$ - [F,L]
+    #    (cron/ and cronbot/ stay reachable on purpose: they are the web-cron
+    #     entry points and are protected by the cron_secret_key check inside)
+    RewriteRule ^(database|config|src|views|storage|vendor)/ - [F,L]
+    RewriteRule ^public/storage/ - [F,L]
+    RewriteRule \.(db|sqlite|sql|log|env|json|md|lock|bak|old)$ - [F,L]
 
     # 2. Allow direct access to existing files and directories
     RewriteCond %{REQUEST_FILENAME} -f [OR]
@@ -20,7 +23,7 @@
 </IfModule>
 
 # Fallback security if mod_rewrite is disabled
-<FilesMatch "\.(db|sql|log|env|json)$">
+<FilesMatch "\.(db|sqlite|sql|log|env|json|lock|bak)$">
     Order allow,deny
     Deny from all
 </FilesMatch>

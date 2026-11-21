@@ -127,6 +127,16 @@
                     <label class="block text-xs font-medium text-slate-300 mb-1.5">آدرس URL مینی‌اپ (Mini App WebApp URL)</label>
                     <input type="text" name="miniapp_url" value="<?= htmlspecialchars($settings['miniapp_url'] ?? '') ?>" placeholder="https://your-domain.com/miniapp" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm font-mono focus:border-blue-500">
                 </div>
+
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">کلید محرمانه کرون بکاپ (Cron Secret Key)</label>
+                    <input type="text" value="<?= htmlspecialchars($settings['cron_secret_key'] ?? '') ?>" readonly class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-amber-300 text-xs font-mono cursor-not-allowed">
+                    <p class="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+                        در تنظیمات Cron هاست (cPanel → Cron Jobs) این آدرس را روزانه اجرا کنید:
+                        <code class="text-amber-400" dir="ltr"><?= htmlspecialchars((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https') ? 'https://' : 'http://') . htmlspecialchars($_SERVER['HTTP_HOST'] ?? 'your-domain.com') ?>/cron/backup.php?key=<?= htmlspecialchars($settings['cron_secret_key'] ?? '') ?></code>
+                        — بدون کلید صحیح، این آدرس قابل استفاده نخواهد بود.
+                    </p>
+                </div>
             </div>
         </div>
 
@@ -150,10 +160,11 @@
                 <div>
                     <label class="block text-xs font-medium text-slate-300 mb-1.5">آدرس وبهوک شما (به صورت خودکار شناسایی شده):</label>
                     <?php
-                        $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https://" : "https://";
+                        $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+                            || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https') ? "https://" : "http://";
                         $detectedUrl = $proto . ($_SERVER['HTTP_HOST'] ?? 'your-domain.com') . '/webhook';
                     ?>
-                    <input type="text" id="webhook_url_input" value="<?= $detectedUrl ?>" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-emerald-400 text-xs font-mono">
+                    <input type="text" id="webhook_url_input" value="<?= htmlspecialchars($detectedUrl) ?>" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-emerald-400 text-xs font-mono">
                 </div>
 
                 <div class="flex items-center gap-2 flex-wrap pt-2">

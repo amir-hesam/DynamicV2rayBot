@@ -51,6 +51,7 @@ $router->get('/admin/admins/delete/{id}', [AdminController::class, 'deleteAdmin'
 
 // Buttons Position & Colors Customization & Removal
 $router->get('/admin/buttons', [AdminController::class, 'buttons']);
+$router->post('/admin/buttons/save-layout', [AdminController::class, 'saveButtonsLayout']);
 $router->post('/admin/buttons/save', [AdminController::class, 'saveButton']);
 $router->get('/admin/buttons/delete/{id}', [AdminController::class, 'deleteButton']);
 $router->get('/admin/buttons/restore', [AdminController::class, 'restoreButtons']);
@@ -85,6 +86,16 @@ $router->post('/admin/orders/reject/{id}', [AdminController::class, 'rejectOrder
 $router->get('/admin/customization', [AdminController::class, 'customization']);
 $router->post('/admin/customization/save', [AdminController::class, 'saveCustomization']);
 
+// Forum Report Topics & Database Backup
+$router->post('/admin/reports/sync-topics', [AdminController::class, 'syncReportTopics']);
+$router->get('/admin/backup/download', [AdminController::class, 'downloadBackup']);
+$router->post('/admin/backup/send-telegram', [AdminController::class, 'sendBackupToTelegram']);
+$router->get('/cron/backup', [AdminController::class, 'cronBackup']);
+
+// Database Migration from MirzaBot
+$router->get('/admin/migration', [AdminController::class, 'migrationView']);
+$router->post('/admin/migration/upload', [AdminController::class, 'handleMigration']);
+
 // Users & Broadcast
 $router->get('/admin/users', [AdminController::class, 'users']);
 $router->get('/admin/users/toggle-ban/{id}', [AdminController::class, 'toggleBanUser']);
@@ -95,6 +106,8 @@ $router->post('/admin/broadcast', [AdminController::class, 'broadcast']);
 $router->get('/miniapp', [MiniAppController::class, 'index']);
 $router->get('/api/miniapp/data', [MiniAppController::class, 'getData']);
 $router->post('/api/miniapp/order', [MiniAppController::class, 'submitOrder']);
+$router->get('/api/miniapp/sync-service', [MiniAppController::class, 'syncService']);
+$router->post('/api/miniapp/topup', [MiniAppController::class, 'topupWallet']);
 
 // Telegram Webhook
 $router->post('/webhook', [WebhookController::class, 'handle']);

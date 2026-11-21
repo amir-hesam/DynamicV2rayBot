@@ -42,6 +42,9 @@ class Handler
             return;
         }
 
+        // Must be resolved BEFORE any keyboard usage (cancel branch below uses it)
+        $isAdmin = User::isAdmin($from['id']);
+
         $text = trim($message['text'] ?? '');
         $photo = $message['photo'] ?? null;
         $caption = trim($message['caption'] ?? '');
@@ -83,8 +86,6 @@ class Handler
             }
             return;
         }
-
-        $isAdmin = User::isAdmin($from['id']);
 
         // Handle commands and customizable menu buttons
         $btnMap = [];
@@ -152,6 +153,11 @@ class Handler
             return;
         }
 
+        if ($text === $btnTest || $text === '/test') {
+            $this->showPlans($from['id']);
+            return;
+        }
+
         // Default response
         $this->bot->sendMessage($from['id'], "لطفا یک گزینه را از منوی زیر انتخاب نمایید:", Keyboard::mainMenu($isAdmin, $from['id']));
     }
@@ -171,9 +177,10 @@ class Handler
         $text .= "⏳ <b>سفارشات در انتظار بررسی:</b> <b>" . number_format($pendingOrders) . "</b> سفارش\n\n";
         $text .= "جهت مدیریت کامل و افزودن سرور، از پنل وب زیر استفاده کنید:";
 
-        $domain = $_SERVER['HTTP_HOST'] ?? 'bot.dywire.ir';
-        $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https://" : "https://";
-        $webUrl = $proto . $domain . '/admin';
+        $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https') ? "https://" : "http://";
+        $domain = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $webUrl = $proto . $domain . '/admin/dashboard';
 
         $inline = [];
         if ($pendingOrders > 0) {
@@ -213,8 +220,9 @@ class Handler
 
             $keyboard = Keyboard::adminOrderKeyboard($order['id']);
 
-            if (!empty($order['receipt_photo'])) {
-                $this->bot->sendPhoto($chatId, $order['receipt_photo'], $caption, $keyboard);
+            $photoParam = \App\Services\PaymentService::resolveReceiptPhoto($order['receipt_photo'] ?? null);
+            if ($photoParam !== null) {
+                $this->bot->sendPhoto($chatId, $photoParam, $caption, $keyboard);
             } else {
                 $this->bot->sendMessage($chatId, $caption, $keyboard);
             }

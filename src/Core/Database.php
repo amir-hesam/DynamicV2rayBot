@@ -10,6 +10,13 @@ class Database
     private static ?PDO $instance = null;
     private static bool $schemaChecked = false;
 
+    /**
+     * Bump this whenever migrations or default seeds change, so existing
+     * installations re-run initSchema() work exactly once after an upgrade.
+     * (Keeps the per-request overhead on shared hosting to a single SELECT.)
+     */
+    public const SCHEMA_VERSION = '2';
+
     public static function getInstance(): PDO
     {
         if (self::$instance === null) {
@@ -61,6 +68,25 @@ class Database
         $driver = $config['driver'] ?? 'sqlite';
         $pdo = self::getInstance();
 
+        // Fast path: schema already migrated to the current version → skip all work.
+        // (Previously every single request re-ran ~16 failing ALTER TABLE statements
+        // plus a full seed pass, which is very costly on shared hosting.)
+        $currentVersion = null;
+        try {
+            $currentVersion = $pdo->query("SELECT `value` FROM settings WHERE `key` = 'schema_version'")->fetchColumn();
+        } catch (\Throwable $e) {
+            // settings table does not exist yet — fall through to full init
+        }
+
+        if (!$force
+            && $currentVersion !== false
+            && $currentVersion !== null
+            && (string)$currentVersion === self::SCHEMA_VERSION
+        ) {
+            self::$schemaChecked = true;
+            return;
+        }
+
         $tablesExist = false;
         if (!$force) {
             try {
@@ -74,7 +100,7 @@ class Database
             }
         }
 
-        if (!$tablesExist || $force) {
+        if (!$tablesExist) {
             if ($driver === 'mysql') {
                 try {
                     $pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;");
@@ -94,18 +120,17 @@ class Database
                 $schema = preg_replace('/DEFAULT\s+[\'"][^\x00-\x7F]+[\'"]/u', '', $schema);
             }
 
+            // array_filter() already dropped empty statements
             $statements = array_filter(array_map('trim', explode(';', $schema)));
 
             foreach ($statements as $stmt) {
-                if (!empty($stmt)) {
-                    if ($driver === 'mysql' && stripos($stmt, 'CREATE TABLE') !== false) {
-                        $stmt .= ' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci';
-                    }
-                    try {
-                        $pdo->exec($stmt);
-                    } catch (\Throwable $e) {
-                        // Ignore if table already exists or minor syntax warning
-                    }
+                if ($driver === 'mysql' && stripos($stmt, 'CREATE TABLE') !== false) {
+                    $stmt .= ' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci';
+                }
+                try {
+                    $pdo->exec($stmt);
+                } catch (\Throwable $e) {
+                    // Ignore if table already exists or minor syntax warning
                 }
             }
         }
@@ -152,6 +177,19 @@ class Database
         try {
             self::seedDefaults();
         } catch (\Throwable $e) {}
+
+        // Persist schema version so the next request takes the fast path
+        try {
+            $driverName = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+            if ($driverName === 'sqlite') {
+                $stmt = $pdo->prepare("INSERT INTO settings (`key`, `value`) VALUES ('schema_version', ?) ON CONFLICT(`key`) DO UPDATE SET `value` = excluded.`value`");
+            } else {
+                $stmt = $pdo->prepare("INSERT INTO settings (`key`, `value`) VALUES ('schema_version', ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)");
+            }
+            $stmt->execute([self::SCHEMA_VERSION]);
+        } catch (\Throwable $e) {
+            // Non-critical: will retry on next request
+        }
     }
 
     private static function seedDefaults(): void
@@ -165,7 +203,11 @@ class Database
             'miniapp_url' => '',
             'admin_username' => 'admin',
             'admin_password' => password_hash('admin123', PASSWORD_BCRYPT),
-            
+
+            // Secret key protecting /cron/backup.php and /cron/backup endpoints.
+            // Generated once per installation; shown in the admin panel.
+            'cron_secret_key' => bin2hex(random_bytes(16)),
+
             // Customizable Button Texts
             'btn_buy' => '🛍 خرید اشتراک جدید',
             'btn_my_services' => '📱 سرویس‌های فعال من',

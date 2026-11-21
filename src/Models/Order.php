@@ -10,10 +10,13 @@ class Order
     public static function all(?string $status = null): array
     {
         $pdo = Database::getInstance();
-        $sql = "SELECT o.*, u.telegram_id, u.username, u.first_name, p.name as plan_name, p.traffic_gb, p.days, pn.name as panel_name 
+        // LEFT JOIN: wallet top-up orders have plan_id = 0 and must still be listed
+        $sql = "SELECT o.*, u.telegram_id, u.username, u.first_name, 
+                COALESCE(p.name, 'شارژ کیف پول / بدون پلن') as plan_name, 
+                COALESCE(p.traffic_gb, 0) as traffic_gb, COALESCE(p.days, 0) as days, pn.name as panel_name 
                 FROM orders o 
                 JOIN users u ON o.user_id = u.id 
-                JOIN plans p ON o.plan_id = p.id 
+                LEFT JOIN plans p ON o.plan_id = p.id 
                 LEFT JOIN panels pn ON o.panel_id = pn.id";
         
         if ($status) {
@@ -33,10 +36,13 @@ class Order
     public static function find(int $id): ?array
     {
         $pdo = Database::getInstance();
-        $stmt = $pdo->prepare("SELECT o.*, u.telegram_id, u.username, u.first_name, p.name as plan_name, p.traffic_gb, p.days, p.ip_limit, pn.name as panel_name 
+        $stmt = $pdo->prepare("SELECT o.*, u.telegram_id, u.username, u.first_name, 
+                COALESCE(p.name, 'شارژ کیف پول / بدون پلن') as plan_name, 
+                COALESCE(p.traffic_gb, 0) as traffic_gb, COALESCE(p.days, 0) as days, 
+                COALESCE(p.ip_limit, 0) as ip_limit, pn.name as panel_name 
                 FROM orders o 
                 JOIN users u ON o.user_id = u.id 
-                JOIN plans p ON o.plan_id = p.id 
+                LEFT JOIN plans p ON o.plan_id = p.id 
                 LEFT JOIN panels pn ON o.panel_id = pn.id 
                 WHERE o.id = ?");
         $stmt->execute([$id]);

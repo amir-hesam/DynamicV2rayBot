@@ -52,6 +52,43 @@ class PaymentService
             throw new Exception("این سفارش قبلاً تایید و تحویل داده شده است.");
         }
 
+        $user = User::find((int)$order['user_id']);
+
+        // Wallet top-up order (no plan attached): credit the balance instead of creating a service
+        if ((int)($order['plan_id'] ?? 0) === 0) {
+            $amount = (int)$order['amount'];
+            if ($amount <= 0) {
+                throw new Exception("مبلغ شارژ نامعتبر است.");
+            }
+            Order::approve($orderId);
+            User::addBalance((int)$order['user_id'], $amount);
+
+            $bot = new Bot();
+            if ($user && !empty($user['telegram_id'])) {
+                $bot->sendMessage(
+                    $user['telegram_id'],
+                    "✅ <b>شارژ کیف پول شما تایید شد!</b>\n\n💰 مبلغ: " . number_format($amount) . " تومان\n💳 موجودی فعلی: " . number_format((int)$user['balance'] + $amount) . " تومان",
+                    Keyboard::mainMenu()
+                );
+            }
+
+            try {
+                ReportHelper::reportFinancial($order, $user ?: ['telegram_id' => 0], 'شارژ کیف پول تایید شد');
+            } catch (\Throwable $e) {
+                // Ignore reporting errors
+            }
+
+            return [
+                'service_id' => 0,
+                'topup' => true,
+                'amount' => $amount,
+                'traffic_gb' => 0,
+                'days' => 0,
+                'ip_limit' => 0,
+                'panel_name' => 'شارژ کیف پول',
+            ];
+        }
+
         // Generate VPN config
         $serviceData = ConfigGenerator::createForOrder($order);
 
@@ -60,7 +97,6 @@ class PaymentService
 
         // Notify user via Telegram
         $bot = new Bot();
-        $user = User::find($order['user_id']);
         if ($user && !empty($user['telegram_id'])) {
             $msg = "🎉 <b>سفارش شما تایید و اشتراک فعال شد!</b>\n\n";
             $msg .= "📦 <b>پلن:</b> {$order['plan_name']}\n";
@@ -95,7 +131,7 @@ class PaymentService
 
         // 5. Send Report to Forum Topic (if configured)
         try {
-            ReportHelper::reportPurchase($order, $user, $serviceData, $panel['name'] ?? null);
+            ReportHelper::reportPurchase($order, $user ?: ['telegram_id' => 0], $serviceData, $serviceData['panel_name'] ?? null);
         } catch (\Throwable $e) {
             // Ignore reporting errors
         }
@@ -129,6 +165,30 @@ class PaymentService
     }
 
     /**
+     * Resolve a stored receipt value into something Telegram accepts:
+     * - Telegram file_id (bot flow) → returned as-is
+     * - Local path from Mini App (/storage/receipts/...) → CURLFile from disk
+     * - Missing / unreadable → null (caller should send a plain message)
+     */
+    public static function resolveReceiptPhoto(?string $receiptPhoto): string|\CURLFile|null
+    {
+        if (empty($receiptPhoto)) {
+            return null;
+        }
+
+        if (str_starts_with($receiptPhoto, '/')) {
+            $fsPath = __DIR__ . '/../../public' . $receiptPhoto;
+            if (!is_file($fsPath)) {
+                return null;
+            }
+            $mime = @mime_content_type($fsPath) ?: 'image/jpeg';
+            return new \CURLFile($fsPath, $mime, basename($fsPath));
+        }
+
+        return $receiptPhoto;
+    }
+
+    /**
      * Send alert to Admin on Telegram
      */
     public static function notifyAdminNewOrder(int $orderId): void
@@ -159,8 +219,9 @@ class PaymentService
 
         $keyboard = Keyboard::adminOrderKeyboard($order['id']);
 
-        if (!empty($order['receipt_photo'])) {
-            $bot->sendPhoto($adminId, $order['receipt_photo'], $caption, $keyboard);
+        $photoParam = self::resolveReceiptPhoto($order['receipt_photo'] ?? null);
+        if ($photoParam !== null) {
+            $bot->sendPhoto($adminId, $photoParam, $caption, $keyboard);
         } else {
             $bot->sendMessage($adminId, $caption, $keyboard);
         }

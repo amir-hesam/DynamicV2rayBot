@@ -104,6 +104,73 @@ class BotButton
         }
     }
 
+    /**
+     * Save dynamic multi-row layout grid matching PanelSaz Sortable Drag & Drop builder
+     */
+    public static function saveGrid(array $layout, array $btnTitles = [], array $btnColors = []): void
+    {
+        $pdo = Database::getInstance();
+
+        // 1. Mark all existing buttons inactive first
+        $pdo->exec("UPDATE bot_buttons SET is_active = 0");
+
+        $updateStmt = $pdo->prepare("UPDATE bot_buttons SET title = :title, row_num = :row_num, order_in_row = :order_in_row, is_active = 1, color = :color WHERE `key` = :key");
+        $insertStmt = $pdo->prepare("INSERT INTO bot_buttons (`key`, title, row_num, order_in_row, is_active, color, text_color) VALUES (:key, :title, :row_num, :order_in_row, 1, :color, '#ffffff')");
+
+        $existing = [];
+        foreach (self::all() as $b) {
+            $existing[$b['key']] = $b;
+        }
+
+        $defaultTitles = [
+            'btn_miniapp'      => '🚀 ورود به مینی‌اپ',
+            'btn_buy'          => '🛍 خرید اشتراک جدید',
+            'btn_my_services'  => '📱 سرویس‌های فعال من',
+            'btn_plans'        => '📋 تعرفه و پلن‌ها',
+            'btn_wallet'       => '💳 کارت به کارت و شارژ',
+            'btn_help'         => '📖 راهنمای اتصال',
+            'btn_support'      => '📞 پشتیبانی تلگرام',
+            'btn_test_account' => '🎁 اکانت تست رایگان',
+        ];
+
+        foreach ($layout as $rowZeroIndex => $rowButtons) {
+            $rowNum = $rowZeroIndex + 1;
+            foreach ($rowButtons as $colZeroIndex => $btnKey) {
+                $orderInRow = $colZeroIndex + 1;
+                $title = trim($btnTitles[$btnKey] ?? ($existing[$btnKey]['title'] ?? ($defaultTitles[$btnKey] ?? $btnKey)));
+                $color = trim($btnColors[$btnKey] ?? ($existing[$btnKey]['color'] ?? '#2563eb'));
+
+                if (isset($existing[$btnKey])) {
+                    $updateStmt->execute([
+                        'title'        => $title,
+                        'row_num'      => $rowNum,
+                        'order_in_row' => $orderInRow,
+                        'color'        => $color,
+                        'key'          => $btnKey,
+                    ]);
+                } else {
+                    $insertStmt->execute([
+                        'key'          => $btnKey,
+                        'title'        => $title,
+                        'row_num'      => $rowNum,
+                        'order_in_row' => $orderInRow,
+                        'color'        => $color,
+                    ]);
+                }
+            }
+        }
+
+        // Also update individual titles and colors for buttons in unused dock if present
+        foreach ($btnTitles as $k => $t) {
+            $t = trim($t);
+            $c = trim($btnColors[$k] ?? '');
+            if (!empty($t) && isset($existing[$k])) {
+                $pdo->prepare("UPDATE bot_buttons SET title = :t, color = CASE WHEN :c != '' THEN :c ELSE color END WHERE `key` = :k")
+                    ->execute(['t' => $t, 'c' => $c, 'k' => $k]);
+            }
+        }
+    }
+
     public static function getActiveGrid(): array
     {
         $buttons = self::all();

@@ -102,7 +102,7 @@ class Service
             $identifier = $service['client_email'] ?: $service['client_uuid'];
             $clientData = $adapter->getClient($identifier);
 
-            if ($clientData && is_array($clientData)) {
+            if ($clientData) {
                 $pdo = Database::getInstance();
 
                 // 1. Used bytes

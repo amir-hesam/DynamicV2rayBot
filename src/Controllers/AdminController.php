@@ -68,17 +68,18 @@ class AdminController
 
         // Check in admins table first
         $admin = Admin::findByUsername($username);
-        if ($admin && $admin['is_active']) {
-            if (password_verify($password, $admin['password']) || ($username === 'admin' && $password === 'admin123')) {
+        if ($admin && $admin['is_active'] && !empty($admin['password'])) {
+            if (password_verify($password, $admin['password'])) {
                 $_SESSION['admin_user'] = $admin;
                 Response::redirect('/admin/dashboard');
             }
         }
 
-        // Legacy fallback
+        // Legacy fallback (settings table). Note: the seeded default hash already
+        // accepts "admin123" via password_verify — no hardcoded bypass allowed.
         $adminUser = Setting::get('admin_username', 'admin');
         $adminPass = Setting::get('admin_password');
-        if ($username === $adminUser && (password_verify($password, $adminPass) || $password === 'admin123')) {
+        if (!empty($adminPass) && $username === $adminUser && password_verify($password, $adminPass)) {
             $_SESSION['admin_user'] = [
                 'id' => 1,
                 'username' => 'admin',
@@ -195,18 +196,136 @@ class AdminController
         Response::redirect('/admin/admins');
     }
 
-    // --- Buttons Layout & Color Customization ---
+    // --- Buttons Layout & Color Customization (Matching PanelSaz Visual Drag & Drop Builder) ---
     public function buttons(Request $request): void
     {
         $currentAdmin = $this->authCheck('customization');
         $buttons = BotButton::all();
 
+        // Screen configuration matching PanelSaz multi-screen architecture
+        $screensConfig = [
+            'main_menu' => [
+                'name'          => '📱 منوی اصلی ربات (دستور /start)',
+                'description'   => 'دکمه‌های نمایش داده شده در کیبورد اصلی ربات تلگرام و چیدمان تعاملی سطری',
+                'setting_key'   => 'btn_layout_order',
+                'default_layout'=> [
+                    ['btn_miniapp'],
+                    ['btn_buy', 'btn_my_services'],
+                    ['btn_plans', 'btn_wallet'],
+                    ['btn_help', 'btn_support'],
+                    ['btn_test_account'],
+                ],
+                'buttons' => [
+                    'btn_miniapp'      => ['title' => '🚀 ورود به مینی‌اپ',   'style' => 'primary', 'color' => '#3b82f6'],
+                    'btn_buy'          => ['title' => '🛍 خرید اشتراک جدید',  'style' => 'success', 'color' => '#2563eb'],
+                    'btn_my_services'  => ['title' => '📱 سرویس‌های فعال من',  'style' => 'primary', 'color' => '#10b981'],
+                    'btn_plans'        => ['title' => '📋 تعرفه و پلن‌ها',    'style' => 'primary', 'color' => '#6366f1'],
+                    'btn_wallet'       => ['title' => '💳 کارت به کارت و شارژ','style' => 'primary', 'color' => '#f59e0b'],
+                    'btn_help'         => ['title' => '📖 راهنمای اتصال',    'style' => 'default', 'color' => '#06b6d4'],
+                    'btn_support'      => ['title' => '📞 پشتیبانی تلگرام',   'style' => 'danger',  'color' => '#ec4899'],
+                    'btn_test_account' => ['title' => '🎁 اکانت تست رایگان',  'style' => 'default', 'color' => '#8b5cf6'],
+                ],
+            ],
+        ];
+
+        // Also incorporate any custom buttons registered in bot_buttons table
+        foreach ($buttons as $btn) {
+            $k = $btn['key'];
+            if (!isset($screensConfig['main_menu']['buttons'][$k])) {
+                $screensConfig['main_menu']['buttons'][$k] = [
+                    'title' => $btn['title'],
+                    'style' => 'default',
+                    'color' => $btn['color'] ?? '#2563eb',
+                ];
+            }
+        }
+
+        // Active layout from active DB records
+        $activeGrid = BotButton::getActiveGrid();
+        $loadedLayout = [];
+        foreach ($activeGrid as $rowIdx => $rowBtns) {
+            $rKeys = [];
+            foreach ($rowBtns as $b) {
+                $rKeys[] = $b['key'];
+            }
+            if (!empty($rKeys)) {
+                $loadedLayout[] = $rKeys;
+            }
+        }
+
+        if (empty($loadedLayout)) {
+            $loadedLayout = $screensConfig['main_menu']['default_layout'];
+        }
+
+        // Construct buttons Map with updated titles and colors
+        $buttonsMap = [];
+        $btnByKey = [];
+        foreach ($buttons as $b) {
+            $btnByKey[$b['key']] = $b;
+        }
+
+        foreach ($screensConfig['main_menu']['buttons'] as $bKey => $bDef) {
+            $dbBtn = $btnByKey[$bKey] ?? null;
+            $title = $dbBtn ? $dbBtn['title'] : Setting::get($bKey, $bDef['title']);
+            $color = $dbBtn ? $dbBtn['color'] : ($bDef['color'] ?? '#2563eb');
+
+            $buttonsMap[$bKey] = [
+                'key'     => $bKey,
+                'title'   => $title,
+                'style'   => $bDef['style'] ?? 'default',
+                'color'   => $color,
+                'link_to' => $bDef['link_to'] ?? null,
+            ];
+        }
+
+        $screensData = [
+            'main_menu' => [
+                'name'        => $screensConfig['main_menu']['name'],
+                'description' => $screensConfig['main_menu']['description'],
+                'layout'      => $loadedLayout,
+                'buttons'     => $buttonsMap,
+            ]
+        ];
+
         View::render('admin.buttons', [
-            'title' => 'چیدمان، موقعیت و رنگ دکمه‌ها',
+            'title' => 'مدیریت و چیدمان دکمه‌های ربات (Drag & Drop)',
             'activeMenu' => 'buttons',
             'currentAdmin' => $currentAdmin,
             'buttons' => $buttons,
+            'screensData' => $screensData,
+            'currentActiveScreen' => 'main_menu',
         ]);
+    }
+
+    public function saveButtonsLayout(Request $request): void
+    {
+        $this->authCheck('customization');
+        $rawLayout = $request->post('layout_json', '');
+        $layoutData = json_decode($rawLayout, true);
+
+        $btnTitles = $request->post('btn_title', []);
+        $btnColors = $request->post('btn_color', []);
+
+        if (is_array($layoutData)) {
+            BotButton::saveGrid($layoutData, (array)$btnTitles, (array)$btnColors);
+            Setting::set('btn_layout_order', json_encode($layoutData));
+
+            // Also synchronize Setting keys so texts match throughout the bot
+            if (is_array($btnTitles)) {
+                foreach ($btnTitles as $k => $t) {
+                    $t = trim($t);
+                    if (!empty($t)) {
+                        Setting::set($k, $t);
+                    }
+                }
+            }
+
+            $_SESSION['flash_success'] = 'چیدمان، رنگ و متن دکمه‌های ربات با موفقیت ذخیره و در تلگرام اعمال شد!';
+        } else {
+            $_SESSION['flash_error'] = 'داده‌های چیدمان نامعتبر است.';
+        }
+
+        Response::redirect('/admin/buttons');
     }
 
     public function saveButton(Request $request): void
@@ -506,7 +625,15 @@ class AdminController
 
         if (!empty($data['new_password'])) {
             Setting::set('admin_password', password_hash($data['new_password'], PASSWORD_BCRYPT));
-            unset($data['new_password']);
+        }
+        unset($data['new_password']);
+
+        // Never allow these keys to be written from this form (privilege escalation / lockout risk)
+        $deniedKeys = ['admin_password', 'admin_username', 'schema_version', 'cron_secret_key', 'webhook_secret'];
+        foreach ($data as $k => $v) {
+            if (in_array($k, $deniedKeys, true) || !is_scalar($v)) {
+                unset($data[$k]);
+            }
         }
 
         Setting::updateMany($data);
@@ -546,6 +673,9 @@ class AdminController
         $sentCount = 0;
 
         if ($request->method() === 'POST' && !empty($message)) {
+            @set_time_limit(0);
+            ignore_user_abort(true);
+
             $users = User::all();
             $bot = new Bot();
 
@@ -592,6 +722,9 @@ class AdminController
     {
         $this->authCheck('customization');
 
+        @set_time_limit(0);
+        ignore_user_abort(true);
+
         if (empty($_FILES['db_file']['tmp_name']) || !is_uploaded_file($_FILES['db_file']['tmp_name'])) {
             $_SESSION['flash_error'] = 'لطفاً فایل دیتابیس میرزا (.sql یا .sqlite) را بارگذاری فرمایید.';
             Response::redirect('/admin/migration');
@@ -612,6 +745,7 @@ class AdminController
     public function syncReportTopics(Request $request): void
     {
         $this->authCheck('customization');
+        @set_time_limit(0);
         $groupId = trim($request->post('report_group_id', ''));
 
         if (empty($groupId)) {
@@ -669,12 +803,17 @@ class AdminController
     public function cronBackup(Request $request): void
     {
         $cronSecret = Setting::get('cron_secret_key');
-        if (!empty($cronSecret)) {
-            $reqKey = $request->query('key', '');
-            if ($reqKey !== $cronSecret) {
-                Response::json(['ok' => false, 'error' => 'Unauthorized'], 403);
-            }
+        // Fail-closed: if no secret is configured, block HTTP access entirely
+        if (empty($cronSecret)) {
+            Response::json(['ok' => false, 'error' => 'Unauthorized: cron_secret_key is not configured'], 403);
         }
+        $reqKey = (string)$request->get('key', '');
+        if (!hash_equals((string)$cronSecret, $reqKey)) {
+            Response::json(['ok' => false, 'error' => 'Unauthorized'], 403);
+        }
+
+        @set_time_limit(0);
+        ignore_user_abort(true);
 
         $res = \App\Services\BackupService::runBackupJob();
         Response::json($res);
